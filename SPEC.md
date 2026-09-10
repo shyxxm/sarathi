@@ -107,6 +107,47 @@ lowers confidence, which pushes the reply toward hedging — and a hedged reply
 still restates what was understood, so the driver still gets the chance to
 correct it. That is the mechanism. Silence is not.
 
+### 2.1 A stated boundary
+
+**The interpreter cannot reliably tell a transcript that lost a load-bearing
+morpheme from one that kept it.** This was tested, not assumed — on a local 7B
+and on Haiku, with the rule written into the prompt in five different forms.
+Both models read the destroyed transcript as a confident report of absence.
+
+```
+m10g   ivide aar illa  pon edukkunil chaap pootti pol und ipp enthu cheyy
+m10gg  ivide aaru      pon edukkunu  chaap poo    pol und ipp entho cheyth
+```
+
+The two differ in one word. `illa` is the negation, and in `m10gg` it is gone —
+with it, the claim that anybody is absent. Every other word is damaged in both,
+to about the same degree.
+
+The reason it cannot be taught: **the model reconstructs meaning from context
+rather than reading morphology, and the context is intact in both.** A shop, a
+phone, nobody answering, a driver asking what to do — that frame survives the
+corruption, and the model completes it. The one morpheme carrying the negation
+is exactly what a context-completing reader does not need, and so does not
+miss.
+
+**The consequence, plainly: an inverted transcript will sometimes be read
+confidently, and it will look like any other report.** `transcript_legible` is
+the model's own account of whether it read the message, and a model that has
+successfully reconstructed a plausible meaning reports true. A self-report
+cannot catch this. It is the wrong instrument.
+
+The composite score in §5 is the only thing standing between a confidently
+inverted reading and a wrong action, and **`stt_confidence` is the signal that
+has to carry it**. That number comes from the layer that heard the audio and
+knows which words it was unsure of. The interpreter, given only text, has no
+way to know that `aaru` arrived where `aarum illa` was said.
+
+**This binds M6.** The STT layer must surface **per-segment confidence**, not
+just a transcript string. A single utterance-level score averages the doubt
+away: the segment carrying `illa` is precisely the one the recogniser will have
+been least sure of, and precisely the one whose confidence must reach §5 intact.
+An STT integration that returns text alone cannot satisfy this file.
+
 This is the single most important section in the file. A pipeline that assumes
 good transcripts will feel broken to a real driver in the first minute.
 
