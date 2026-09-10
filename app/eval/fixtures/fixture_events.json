@@ -1,6 +1,6 @@
 [
   {
-    "id": "clean-depot-departure", "source": "driver", "event_type": "DEPARTED_DEPOT",
+    "id": "clean-depot-departure", "source": "driver", "event_type": "DEPARTED",
     "occurred_at": "2026-09-10T08:05:00+05:30", "ingested_at": "2026-09-10T08:05:00+05:30",
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
     "raw_transcript": "Leaving the depot for the first delivery."
@@ -24,7 +24,7 @@
     "raw_transcript": "Delivery done, paperwork signed."
   },
   {
-    "id": "clean-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "id": "clean-departure", "source": "driver", "event_type": "DEPARTED",
     "occurred_at": "2026-09-10T09:31:00+05:30", "ingested_at": "2026-09-10T09:31:00+05:30",
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
     "raw_transcript": "Leaving for Kochi Homeware."
@@ -55,7 +55,7 @@
     "raw_transcript": "Second delivery finished."
   },
   {
-    "id": "gate-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "id": "gate-departure", "source": "driver", "event_type": "DEPARTED",
     "occurred_at": "2026-09-10T11:36:00+05:30", "ingested_at": "2026-09-10T11:36:00+05:30",
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-2",
     "raw_transcript": "Leaving for Malabar Electrical."
@@ -78,7 +78,7 @@
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-3"
   },
   {
-    "id": "absent-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "id": "absent-departure", "source": "driver", "event_type": "DEPARTED",
     "occurred_at": "2026-09-10T12:11:00+05:30", "ingested_at": "2026-09-10T12:11:00+05:30",
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-3",
     "raw_transcript": "Leaving Malabar Electrical, heading to stop four."
@@ -102,7 +102,7 @@
     "raw_transcript": "Stop four delivered."
   },
   {
-    "id": "silent-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "id": "silent-departure", "source": "driver", "event_type": "DEPARTED",
     "occurred_at": "2026-09-10T14:56:00+05:30", "ingested_at": "2026-09-10T14:56:00+05:30",
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-4",
     "raw_transcript": "Leaving for the final delivery."
@@ -126,7 +126,7 @@
     "raw_transcript": "Final delivery done and signed."
   },
   {
-    "id": "final-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "id": "final-departure", "source": "driver", "event_type": "DEPARTED",
     "occurred_at": "2026-09-10T16:46:00+05:30", "ingested_at": "2026-09-10T16:46:00+05:30",
     "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-5",
     "raw_transcript": "Leaving the last stop."

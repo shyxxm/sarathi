@@ -32,8 +32,9 @@ A JSON object, these keys exactly:
 
 ## Event types
 
-Progress: `DEPARTED_DEPOT`, `ARRIVED_STOP`, `SERVICE_STARTED` (unloading has
-begun), `STOP_COMPLETED` (delivery done), `DEPARTED_STOP`.
+Progress: `DEPARTED` (he has set off — from the depot or from a stop, you do
+not need to know which and must not guess), `ARRIVED_STOP`, `SERVICE_STARTED`
+(unloading has begun), `STOP_COMPLETED` (delivery done).
 
 Problems: `GATE_CLOSED`, `CONSIGNEE_ABSENT` (nobody there to receive),
 `VEHICLE_BREAKDOWN`, `DOCUMENT_ISSUE`, `SHORTAGE_OR_DAMAGE`,

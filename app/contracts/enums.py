@@ -17,11 +17,12 @@ class Intent(str, Enum):
 
 class EventType(str, Enum):
     # progress
-    DEPARTED_DEPOT = "DEPARTED_DEPOT"
+    # One departure, not two: "eranganu" is the same sentence leaving the depot
+    # and leaving stop 3. apply() decides which from the stop's status. SPEC 3.1.
+    DEPARTED = "DEPARTED"
     ARRIVED_STOP = "ARRIVED_STOP"
     SERVICE_STARTED = "SERVICE_STARTED"
     STOP_COMPLETED = "STOP_COMPLETED"
-    DEPARTED_STOP = "DEPARTED_STOP"
     # problems
     GATE_CLOSED = "GATE_CLOSED"
     CONSIGNEE_ABSENT = "CONSIGNEE_ABSENT"

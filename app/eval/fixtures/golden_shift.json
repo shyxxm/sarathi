@@ -7,7 +7,7 @@
     "expected_intents": [
       "REPORT"
     ],
-    "expected_event_type": "DEPARTED_DEPOT",
+    "expected_event_type": "DEPARTED",
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
@@ -49,7 +49,7 @@
     "expected_intents": [
       "REPORT"
     ],
-    "expected_event_type": "DEPARTED_STOP",
+    "expected_event_type": "DEPARTED",
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
@@ -204,7 +204,7 @@
     "expected_intents": [
       "REPORT"
     ],
-    "expected_event_type": "DEPARTED_STOP",
+    "expected_event_type": "DEPARTED",
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,

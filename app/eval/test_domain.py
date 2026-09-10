@@ -46,7 +46,7 @@ def run(state, *events):
 def arrive(state, stop_id, when):
     return run(
         state,
-        event(EventType.DEPARTED_DEPOT, at(8, 5)),
+        event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"),
         event(EventType.ARRIVED_STOP, when, stop_id=stop_id),
     )[0]
 
@@ -57,11 +57,11 @@ def arrive(state, stop_id, when):
 def test_a_stop_walks_the_whole_chain_and_departure_puts_the_next_on_the_road(state):
     state, outcomes = run(
         state,
-        event(EventType.DEPARTED_DEPOT, at(8, 5)),
+        event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"),
         event(EventType.ARRIVED_STOP, at(9, 2), stop_id="stop-1"),
         event(EventType.SERVICE_STARTED, at(9, 10), stop_id="stop-1"),
         event(EventType.STOP_COMPLETED, at(9, 35), stop_id="stop-1"),
-        event(EventType.DEPARTED_STOP, at(9, 40), stop_id="stop-1"),
+        event(EventType.DEPARTED, at(9, 40), stop_id="stop-1"),
     )
     assert all(isinstance(outcome, Applied) for outcome in outcomes)
     assert state.stop("stop-1").status is StopStatus.COMPLETED
@@ -71,7 +71,7 @@ def test_a_stop_walks_the_whole_chain_and_departure_puts_the_next_on_the_road(st
 
 
 def test_an_illegal_transition_changes_nothing_and_asks_the_driver(state):
-    state, _ = run(state, event(EventType.DEPARTED_DEPOT, at(8, 5)))
+    state, _ = run(state, event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"))
     before = state
     jump = event(EventType.STOP_COMPLETED, at(9, 30), stop_id="stop-1")
 
@@ -98,7 +98,7 @@ def test_delivered_straight_after_reached_is_legal(state):
 
 
 def test_arriving_at_a_stop_we_have_not_sent_him_to_asks_which_stop(state):
-    state, _ = run(state, event(EventType.DEPARTED_DEPOT, at(8, 5)))   # stop-1 EN_ROUTE
+    state, _ = run(state, event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"))   # stop-1 EN_ROUTE
 
     after, outcome = apply(state, event(EventType.ARRIVED_STOP, at(9, 2), stop_id="stop-3"),
                            at(9, 2))
@@ -184,10 +184,10 @@ def at_stop_two(state):
     we only heard about it at 10:30."""
     state, _ = run(
         state,
-        event(EventType.DEPARTED_DEPOT, at(8, 5)),
+        event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"),
         event(EventType.ARRIVED_STOP, at(9, 0), stop_id="stop-1"),
         event(EventType.STOP_COMPLETED, at(9, 35), stop_id="stop-1"),
-        event(EventType.DEPARTED_STOP, at(9, 40), stop_id="stop-1"),
+        event(EventType.DEPARTED, at(9, 40), stop_id="stop-1"),
         event(EventType.ARRIVED_STOP, at(10, 20), at(10, 30),
               stop_id="stop-2", driver_claimed_wait_minutes=40),
     )
@@ -216,7 +216,7 @@ def test_the_ledger_stops_the_clock_when_unloading_starts(state):
         state,
         event(EventType.SERVICE_STARTED, at(11, 32), stop_id="stop-2"),
         event(EventType.STOP_COMPLETED, at(11, 55), stop_id="stop-2"),
-        event(EventType.DEPARTED_STOP, at(11, 56), stop_id="stop-2"),
+        event(EventType.DEPARTED, at(11, 56), stop_id="stop-2"),
     )
     departure = state.events[-1]
 
@@ -237,7 +237,7 @@ def test_a_stop_that_never_unloaded_freezes_at_departure(state):
         state,
         event(EventType.CONSIGNEE_ABSENT, at(9, 20), stop_id="stop-1"),
         event(EventType.REATTEMPT_SCHEDULED, at(9, 50), source="system", stop_id="stop-1"),
-        event(EventType.DEPARTED_STOP, at(9, 55), stop_id="stop-1"),
+        event(EventType.DEPARTED, at(9, 55), stop_id="stop-1"),
     )
     departure = state.events[-1]
 
@@ -317,7 +317,7 @@ def fired(events, rule):
 
 
 def test_overdue_fires_once_and_stops_once_he_arrives(state):
-    state, _ = run(state, event(EventType.DEPARTED_DEPOT, at(8, 5)))
+    state, _ = run(state, event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"))
 
     first = watchdog.tick(state, at(9, 16))
     assert [one.stop_id for one in fired(first, EventType.STOP_OVERDUE)] == ["stop-1"]
@@ -330,7 +330,7 @@ def test_overdue_fires_once_and_stops_once_he_arrives(state):
 
 
 def test_a_rule_fires_again_when_the_condition_clears_and_recurs(state):
-    state, _ = run(state, event(EventType.DEPARTED_DEPOT, at(8, 5)))
+    state, _ = run(state, event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"))
 
     first = fired(watchdog.tick(state, at(9, 40)), EventType.DRIVER_SILENT)
     assert len(first) == 1                                   # 90 min since shift start
@@ -445,9 +445,9 @@ def test_a_crossing_also_closes_on_departure(state):
     state, _ = run(
         state,
         event(EventType.STOP_COMPLETED, at(11, 35), stop_id="stop-2"),
-        event(EventType.DEPARTED_STOP, at(11, 36), stop_id="stop-2"),
+        event(EventType.DEPARTED, at(11, 36), stop_id="stop-2"),
     )
-    left = event(EventType.DEPARTED_STOP, at(11, 36), stop_id="stop-2")
+    left = event(EventType.DEPARTED, at(11, 36), stop_id="stop-2")
     assert len(resolution.close_matching(state, left, at(11, 36))) == 1
     assert resolution.expire_open(
         state.with_exceptions(resolution.close_matching(state, left, at(11, 36))),
@@ -488,7 +488,7 @@ def test_a_gate_closure_at_another_stop_is_not_closed(state):
 
 
 def test_silence_is_closed_by_anything_the_driver_says(state):
-    state, _ = run(state, event(EventType.DEPARTED_DEPOT, at(8, 5)))
+    state, _ = run(state, event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"))
     quiet = watchdog.tick(state, at(9, 40))[-1]
     state = state.with_event(quiet).with_exceptions(
         exception_rules.evaluate(state, quiet, at(9, 40)).opened)

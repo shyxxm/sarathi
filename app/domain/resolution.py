@@ -23,9 +23,9 @@ CLOSURES: Mapping[EventType, frozenset[EventType]] = {
     EventType.STOP_OVERDUE: frozenset({EventType.ARRIVED_STOP}),
     EventType.DRIVER_SILENT: frozenset(),
     EventType.WINDOW_AT_RISK: frozenset({EventType.STOP_COMPLETED}),
-    EventType.VEHICLE_BREAKDOWN: frozenset({EventType.DEPARTED_STOP}),
+    EventType.VEHICLE_BREAKDOWN: frozenset({EventType.DEPARTED}),
     EventType.DETENTION_CROSSED: frozenset(
-        {EventType.SERVICE_STARTED, EventType.DEPARTED_STOP}),
+        {EventType.SERVICE_STARTED, EventType.DEPARTED}),
 }
 
 LIVE = frozenset({ExceptionStatus.OPEN, ExceptionStatus.ACTING, ExceptionStatus.MONITORING})

@@ -20,7 +20,7 @@ STOP_ID = "stop_id"
 # These are about the trip, not a stop. A missing stop on one of them is not an
 # unresolved field.
 TRIP_LEVEL = frozenset({
-    EventType.DEPARTED_DEPOT,
+    EventType.DEPARTED,
     EventType.DRIVER_SILENT,
     EventType.VEHICLE_BREAKDOWN,
     EventType.ACKNOWLEDGEMENT,

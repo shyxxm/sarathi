@@ -46,13 +46,23 @@ def wait_ended_at(state: TripState, stop_id: str) -> datetime | None:
     waiting, and SPEC 4.2 does not bill the customer for that. A stop that
     never got that far ends its wait when he drives away: a refusal, an absent
     consignee, a reattempt tomorrow.
+
+    Only events after the arrival count. Setting off from the depot is filed
+    against the stop he is driving towards, so stop 1 carries a `DEPARTED` from
+    08:05 that has nothing to do with leaving stop 1 at 09:55.
     """
+    started = arrival_observed_at(state, stop_id)
+    if started is None:
+        return None
+    after_arrival = [
+        event for event in state.events_at(stop_id) if event.ingested_at >= started
+    ]
     ends = [
-        event.ingested_at for event in state.events_at(stop_id)
+        event.ingested_at for event in after_arrival
         if event.event_type is EventType.SERVICE_STARTED
     ] or [
-        event.ingested_at for event in state.events_at(stop_id)
-        if event.event_type is EventType.DEPARTED_STOP
+        event.ingested_at for event in after_arrival
+        if event.event_type is EventType.DEPARTED
     ]
     return min(ends, default=None)
 
@@ -119,7 +129,7 @@ def ledger_entry(
     Written by the `LOG_DETENTION` action and by nothing else. SPEC 4.2.
 
     The clock stops on its own: at `SERVICE_STARTED` if unloading has begun, at
-    `DEPARTED_STOP` if he left without it ever starting, and not at all while he
+    `DEPARTED` if he left without it ever starting, and not at all while he
     is still out there waiting — that row quotes `now` and keeps running.
     Passing `freeze_at` overrides all of it and pins the row to that instant.
 

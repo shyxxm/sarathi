@@ -184,7 +184,6 @@ Outcome = Applied | Rejected
 # PENDING -> ARRIVED is not. That one almost always means we have the wrong
 # stop, and asking which stop he means is the useful answer.
 TRANSITIONS: Mapping[EventType, tuple[frozenset[StopStatus], StopStatus]] = {
-    EventType.DEPARTED_DEPOT: (frozenset({StopStatus.PENDING}), StopStatus.EN_ROUTE),
     EventType.ARRIVED_STOP: (frozenset({StopStatus.EN_ROUTE}), StopStatus.ARRIVED),
     EventType.SERVICE_STARTED: (frozenset({StopStatus.ARRIVED}), StopStatus.IN_SERVICE),
     EventType.STOP_COMPLETED: (frozenset(AT_STOP), StopStatus.COMPLETED),
@@ -209,12 +208,11 @@ STATUS_PHRASE: Mapping[StopStatus, str] = {
 }
 
 EVENT_PHRASE: Mapping[EventType, str] = {
-    EventType.DEPARTED_DEPOT: "you have left the depot",
     EventType.ARRIVED_STOP: "you have reached it",
     EventType.SERVICE_STARTED: "unloading has started",
     EventType.STOP_COMPLETED: "the delivery is done",
     EventType.DELIVERY_REFUSED: "they refused it",
-    EventType.DEPARTED_STOP: "you have left",
+    EventType.DEPARTED: "you have set off",
     EventType.REATTEMPT_SCHEDULED: "we are setting up another attempt",
 }
 
@@ -227,7 +225,7 @@ def apply(state: TripState, event: OperationalEvent, now: datetime) -> tuple[Tri
     if now > state.shift_end:
         return state, Rejected(event, "Today's trip is already closed off. I will pass this to the office.")
 
-    if event.event_type is EventType.DEPARTED_STOP:
+    if event.event_type is EventType.DEPARTED:
         return _depart(state, event)
     if event.event_type not in TRANSITIONS:
         return state.with_event(event), Applied(event)   # recorded, moves nothing
@@ -247,10 +245,21 @@ def apply(state: TripState, event: OperationalEvent, now: datetime) -> tuple[Tri
 
 
 def _depart(state: TripState, event: OperationalEvent) -> tuple[TripState, Outcome]:
-    """Leaving a stop closes nothing; it puts the next stop on the road."""
+    """He has set off. From the depot or from a stop — the words do not say, so
+    the stop's status does. SPEC 3.1 and 4.1.
+
+    Leaving a stop closes nothing; it puts the next stop on the road.
+    """
     stop = state.stop(event.stop_id)
     if stop is None:
-        return state, Rejected(event, "I am not sure which stop you have left. Which stop was it?")
+        return state, Rejected(event, "I am not sure where you are leaving from. Which stop?")
+
+    if stop.status is StopStatus.PENDING:
+        # Nothing has been reached yet, so this is the depot and that stop is
+        # the one he is now driving to.
+        moved = state.with_stop_status(stop.id, StopStatus.EN_ROUTE).with_event(event)
+        return moved, Applied(event, (Transition(stop.id, stop.status, StopStatus.EN_ROUTE),))
+
     if stop.status not in FINISHED:
         return state, Rejected(event, _disagrees(state, stop, event))
 
@@ -266,10 +275,7 @@ def _depart(state: TripState, event: OperationalEvent) -> tuple[TripState, Outco
 
 
 def _subject(state: TripState, event: OperationalEvent) -> StopState | None:
-    """Which stop the transition acts on. Depot departure puts the first stop
-    on the road even though the driver named no stop."""
-    if event.event_type is EventType.DEPARTED_DEPOT:
-        return next((stop for stop in state.stops if stop.status is StopStatus.PENDING), None)
+    """Which stop the transition acts on."""
     return state.stop(event.stop_id)
 
 
