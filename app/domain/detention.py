@@ -39,6 +39,24 @@ def arrival_observed_at(state: TripState, stop_id: str) -> datetime | None:
     return min((event.ingested_at for event in arrivals), default=None)
 
 
+def wait_ended_at(state: TripState, stop_id: str) -> datetime | None:
+    """When the waiting stopped. None while he is still standing there.
+
+    Unloading starting is what ends the wait — from then on he is working, not
+    waiting, and SPEC 4.2 does not bill the customer for that. A stop that
+    never got that far ends its wait when he drives away: a refusal, an absent
+    consignee, a reattempt tomorrow.
+    """
+    ends = [
+        event.ingested_at for event in state.events_at(stop_id)
+        if event.event_type is EventType.SERVICE_STARTED
+    ] or [
+        event.ingested_at for event in state.events_at(stop_id)
+        if event.event_type is EventType.DEPARTED_STOP
+    ]
+    return min(ends, default=None)
+
+
 def claimed_wait_minutes(state: TripState, stop_id: str) -> int | None:
     """What the driver said he waited. Stored, spoken back, never billed from."""
     claims = [
@@ -92,13 +110,18 @@ def ledger_entry(
 ) -> dict | None:
     """A `detention_ledger` row. None until an arrival has been observed.
 
-    `freeze_at` stops the clock. A row written on departure passes that
-    departure's `ingested_at` and the exposure is fixed there; a row written
-    while he is still standing at the gate passes nothing and quotes `now`.
-    The choice is the caller's and visible at the call site — `compute()` stays
-    a plain function of the instant it is handed, with no policy inside it.
+    Written by the `LOG_DETENTION` action and by nothing else. SPEC 4.2.
+
+    The clock stops on its own: at `SERVICE_STARTED` if unloading has begun, at
+    `DEPARTED_STOP` if he left without it ever starting, and not at all while he
+    is still out there waiting — that row quotes `now` and keeps running.
+    Passing `freeze_at` overrides all of it and pins the row to that instant.
+
+    The default has to be the right one, because the caller that gets this
+    wrong bills a customer for the driver's own unloading. `compute()` stays a
+    plain function of the instant it is handed; the policy lives here.
     """
-    quoted_at = freeze_at or now
+    quoted_at = freeze_at or wait_ended_at(state, stop_id) or now
     waiting = compute(state, stop_id, quoted_at)
     if waiting is None:
         return None

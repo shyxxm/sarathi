@@ -207,22 +207,60 @@ def test_detention_arithmetic(state):
     assert detention.compute(at_stop_two(state), "stop-3", at(11, 31)) is None
 
 
-def test_a_ledger_row_written_at_departure_freezes_there(state):
+def test_the_ledger_stops_the_clock_when_unloading_starts(state):
+    """He waited 62 minutes and then unloaded for 23. The customer is billed for
+    the 62. Freezing at departure instead would bill him for the driver's own
+    unloading — which is what the seeded shift does at stop-2, 22 minutes of it."""
+    state = at_stop_two(state)                          # arrival ingested 10:30
+    state, _ = run(
+        state,
+        event(EventType.SERVICE_STARTED, at(11, 32), stop_id="stop-2"),
+        event(EventType.STOP_COMPLETED, at(11, 55), stop_id="stop-2"),
+        event(EventType.DEPARTED_STOP, at(11, 56), stop_id="stop-2"),
+    )
+    departure = state.events[-1]
+
+    assert detention.wait_ended_at(state, "stop-2") == at(11, 32)
+    row = detention.ledger_entry(state, "stop-2", departure, at(15, 0))
+
+    assert row["computed_at"] == at(11, 32)             # not 11:56
+    assert row["billable_minutes"] == 2                 # 62 waited, 60 free
+    assert row["exposure_paise"] == 300
+    assert row["arrival_observed_at"] == at(10, 30)
+    assert row["id"] == "detention-trip-1-stop-2"
+
+
+def test_a_stop_that_never_unloaded_freezes_at_departure(state):
+    """Nobody was there, so nothing was unloaded. The wait ends when he leaves."""
+    state = arrive(state, "stop-1", at(9, 0))           # customer-1: 30 free, 250/min
+    state, _ = run(
+        state,
+        event(EventType.CONSIGNEE_ABSENT, at(9, 20), stop_id="stop-1"),
+        event(EventType.REATTEMPT_SCHEDULED, at(9, 50), source="system", stop_id="stop-1"),
+        event(EventType.DEPARTED_STOP, at(9, 55), stop_id="stop-1"),
+    )
+    departure = state.events[-1]
+
+    assert detention.wait_ended_at(state, "stop-1") == at(9, 55)
+    row = detention.ledger_entry(state, "stop-1", departure, at(15, 0))
+
+    assert row["computed_at"] == at(9, 55)
+    assert row["billable_minutes"] == 25                # 55 waited, 30 free
+    assert row["exposure_paise"] == 6250
+
+
+def test_a_stop_still_waiting_keeps_running_and_freeze_at_overrides(state):
     state = at_stop_two(state)
-    departure = event(EventType.DEPARTED_STOP, at(11, 31), stop_id="stop-2")
+    standing = event(EventType.GATE_CLOSED, at(11, 31), stop_id="stop-2")
 
-    frozen = detention.ledger_entry(state, "stop-2", departure, at(15, 0),
-                                    freeze_at=departure.ingested_at)
-    still_waiting = detention.ledger_entry(state, "stop-2", departure, at(11, 31))
-
-    assert frozen["computed_at"] == at(11, 31)
-    assert frozen["billable_minutes"] == still_waiting["billable_minutes"] == 1
-    assert frozen["exposure_paise"] == 150
-    assert frozen["id"] == "detention-trip-1-stop-2"
-    # Without the freeze the same row quoted later keeps running.
-    assert detention.ledger_entry(state, "stop-2", departure,
-                                  at(15, 0))["billable_minutes"] == 210
-    assert detention.ledger_entry(state, "stop-3", departure, at(15, 0)) is None
+    assert detention.wait_ended_at(state, "stop-2") is None
+    # Nothing has ended the wait, so the card shows it still running.
+    assert detention.ledger_entry(state, "stop-2", standing, at(11, 31))["billable_minutes"] == 1
+    assert detention.ledger_entry(state, "stop-2", standing, at(15, 0))["billable_minutes"] == 210
+    # An explicit freeze_at still wins over everything.
+    assert detention.ledger_entry(state, "stop-2", standing, at(15, 0),
+                                  freeze_at=at(11, 31))["billable_minutes"] == 1
+    assert detention.ledger_entry(state, "stop-3", standing, at(15, 0)) is None
 
 
 def test_the_wait_is_anchored_on_arrival_not_on_the_problem_report(state):
