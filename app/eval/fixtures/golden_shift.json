@@ -1,0 +1,241 @@
+[
+  {
+    "id": "m01",
+    "occurred_at": "08:05",
+    "text": "sir eranganu",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "DEPARTED_DEPOT",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m02",
+    "occurred_at": "08:58",
+    "text": "ethi",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "ARRIVED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": true
+  },
+  {
+    "id": "m03",
+    "occurred_at": "09:30",
+    "text": "ok sir load irakki kazhinju",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "STOP_COMPLETED",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m04",
+    "occurred_at": "09:31",
+    "text": "next point povuva",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "DEPARTED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m05",
+    "occurred_at": "10:05",
+    "text": "sir rand mathe godown ethi undu",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "ARRIVED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": "rand mathe godown",
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": true
+  },
+  {
+    "id": "m06",
+    "occurred_at": "10:13",
+    "text": "gate adachirikkuva security paranju wait cheyyan pinne varan njan purath nikkuva nalpath minute ayi",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "GATE_CLOSED",
+    "expected_exception": "GATE_CLOSED",
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": 40,
+    "in_prompt": true
+  },
+  {
+    "id": "m07",
+    "occurred_at": "11:14",
+    "text": "gate thurannu irakkan thudangi",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "SERVICE_STARTED",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m08",
+    "occurred_at": "11:35",
+    "text": "over",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "UNCLEAR",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": true
+  },
+  {
+    "id": "m09",
+    "occurred_at": "12:00",
+    "text": "sir ethiyittund",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "ARRIVED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m10",
+    "occurred_at": "12:02",
+    "text": "ivide aarum illa phone edukkunilla shop poottiya pole und ippo enthu cheyyum",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT",
+      "QUESTION"
+    ],
+    "expected_event_type": "CONSIGNEE_ABSENT",
+    "expected_exception": "CONSIGNEE_ABSENT",
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": true
+  },
+  {
+    "id": "m11",
+    "occurred_at": "14:30",
+    "text": "sir ethi block ayirunnu",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "ARRIVED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": true
+  },
+  {
+    "id": "m12",
+    "occurred_at": "14:55",
+    "text": "kazhinju sir",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "STOP_COMPLETED",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m13",
+    "occurred_at": "16:00",
+    "text": "last point ethi",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "ARRIVED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": "last point",
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m14",
+    "occurred_at": "16:45",
+    "text": "ellam kodthu sir signature vangi",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "STOP_COMPLETED",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m15",
+    "occurred_at": "16:46",
+    "text": "ok njan poyi",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "DEPARTED_STOP",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
+    "id": "m06g",
+    "derived_from": "m06",
+    "occurred_at": "10:13",
+    "text": "get adachiri chikkuriti paran vetu cheyy pinne var njan purath nikku nalu minu ayi",
+    "garbled": true,
+    "expected_intents": null,
+    "expected_event_type": "UNCLEAR",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_transcript_legible": false,
+    "in_prompt": true
+  },
+  {
+    "id": "m10g",
+    "derived_from": "m10",
+    "occurred_at": "12:02",
+    "text": "ivide aar illa pon edukkunil chaap pootti pol und ipp enthu cheyy",
+    "garbled": true,
+    "expected_intents": null,
+    "expected_event_type": "UNCLEAR",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_transcript_legible": false,
+    "in_prompt": false
+  }
+]
