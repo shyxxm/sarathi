@@ -109,44 +109,65 @@ correct it. That is the mechanism. Silence is not.
 
 ### 2.1 A stated boundary
 
-**The interpreter cannot reliably tell a transcript that lost a load-bearing
-morpheme from one that kept it.** This was tested, not assumed — on a local 7B
-and on Haiku, with the rule written into the prompt in five different forms.
-Both models read the destroyed transcript as a confident report of absence.
+**The interpreter completes frames from context, and will override the
+individual words to do it.** Damage is not required. This is the failure this
+system has to survive, and it is a property of how the model reads, not of how
+bad the audio was.
+
+The clearest case has no corruption in it at all:
+
+```
+m07   gate thurannu irakkan thudangi
+      the gate opened and unloading has started
+      read as: GATE_CLOSED
+```
+
+Every word arrived intact. `thurannu` means opened. But `gate` is the salient
+word, and a gate in a lorry driver's message is overwhelmingly a gate that is
+shut — that is the frame, and the model completed it and reported the opposite
+of what he said. Note that it needs no history to do this: the interpreter sees
+one transcript and nothing else. The pull comes from the language, not from
+anything it knows about the trip.
+
+The same mechanism, with damage, explains why a missing morpheme cannot be
+caught either:
 
 ```
 m10g   ivide aar illa  pon edukkunil chaap pootti pol und ipp enthu cheyy
 m10gg  ivide aaru      pon edukkunu  chaap poo    pol und ipp entho cheyth
 ```
 
-The two differ in one word. `illa` is the negation, and in `m10gg` it is gone —
-with it, the claim that anybody is absent. Every other word is damaged in both,
-to about the same degree.
+These differ in one word. `illa` is the negation; in `m10gg` it is gone, and
+with it the claim that anybody is absent. Both were read as a confident report
+of absence, on a local 7B and on Haiku, with the rule written into the prompt
+five different ways. A shop, a phone, nobody answering, a driver asking what to
+do — that frame survives the corruption, so the model completes it. The one
+morpheme carrying the negation is exactly what a context-completing reader does
+not need, and therefore does not miss.
 
-The reason it cannot be taught: **the model reconstructs meaning from context
-rather than reading morphology, and the context is intact in both.** A shop, a
-phone, nobody answering, a driver asking what to do — that frame survives the
-corruption, and the model completes it. The one morpheme carrying the negation
-is exactly what a context-completing reader does not need, and so does not
-miss.
+**`stt_confidence` does not catch this class.** m07's audio was clean and its
+confidence will be high. The signal describes how well the words were heard,
+and here the words were heard perfectly and then overridden. So the composite
+score in §5 cannot be the only mitigation — it will score this reading as
+trustworthy, because by every signal it has, it is.
 
-**The consequence, plainly: an inverted transcript will sometimes be read
-confidently, and it will look like any other report.** `transcript_legible` is
-the model's own account of whether it read the message, and a model that has
-successfully reconstructed a plausible meaning reports true. A self-report
-cannot catch this. It is the wrong instrument.
+**What actually catches it is §2.** Sarathi says *"recorded — gate closed at
+stop 2, waiting counted from 10:42"* and the driver says *no, it opened, I'm
+unloading.* The restatement loop was built for bad transcription and it turns
+out to catch bad comprehension too, because it does not care why we got it
+wrong — only that we say what we understood, in concrete terms, to the one
+person who knows. §2 was already the answer to this. 2.1 simply did not
+realise, at first, that it was pointing back at it.
 
-The composite score in §5 is the only thing standing between a confidently
-inverted reading and a wrong action, and **`stt_confidence` is the signal that
-has to carry it**. That number comes from the layer that heard the audio and
-knows which words it was unsure of. The interpreter, given only text, has no
-way to know that `aaru` arrived where `aarum illa` was said.
+Two things follow, and they are not alternatives:
 
-**This binds M6.** The STT layer must surface **per-segment confidence**, not
-just a transcript string. A single utterance-level score averages the doubt
-away: the segment carrying `illa` is precisely the one the recogniser will have
-been least sure of, and precisely the one whose confidence must reach §5 intact.
-An STT integration that returns text alone cannot satisfy this file.
+- **`restated_facts` is load-bearing safety, not courtesy.** A reply that
+  acknowledges without restating removes the only check on this failure. This
+  is why `DriverReply.restated_facts` is never empty (§3.4, CLAUDE.md rule 2).
+- **M6 still owes per-segment STT confidence.** It catches the damaged subclass
+  — the segment carrying `illa` is the one the recogniser was least sure of, and
+  that doubt has to reach §5 rather than being averaged away. It is necessary
+  and it is not sufficient.
 
 This is the single most important section in the file. A pipeline that assumes
 good transcripts will feel broken to a real driver in the first minute.
