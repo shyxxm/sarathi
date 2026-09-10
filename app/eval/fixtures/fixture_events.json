@@ -1,0 +1,134 @@
+[
+  {
+    "id": "clean-depot-departure", "source": "driver", "event_type": "DEPARTED_DEPOT",
+    "occurred_at": "2026-09-10T08:05:00+05:30", "ingested_at": "2026-09-10T08:05:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
+    "raw_transcript": "Leaving the depot for the first delivery."
+  },
+  {
+    "id": "clean-arrival", "source": "driver", "event_type": "ARRIVED_STOP",
+    "occurred_at": "2026-09-10T09:00:00+05:30", "ingested_at": "2026-09-10T09:00:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
+    "raw_transcript": "Reached Periyar Wholesale Foods."
+  },
+  {
+    "id": "clean-service", "source": "driver", "event_type": "SERVICE_STARTED",
+    "occurred_at": "2026-09-10T09:01:00+05:30", "ingested_at": "2026-09-10T09:01:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
+    "raw_transcript": "Unloading has started."
+  },
+  {
+    "id": "clean-completion", "source": "driver", "event_type": "STOP_COMPLETED",
+    "occurred_at": "2026-09-10T09:30:00+05:30", "ingested_at": "2026-09-10T09:30:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
+    "raw_transcript": "Delivery done, paperwork signed."
+  },
+  {
+    "id": "clean-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "occurred_at": "2026-09-10T09:31:00+05:30", "ingested_at": "2026-09-10T09:31:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-1",
+    "raw_transcript": "Leaving for Kochi Homeware."
+  },
+  {
+    "id": "gate-arrival", "source": "driver", "event_type": "ARRIVED_STOP",
+    "occurred_at": "2026-09-10T10:05:00+05:30", "ingested_at": "2026-09-10T10:12:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-2",
+    "raw_transcript": "Reached Kochi Homeware seven minutes ago."
+  },
+  {
+    "id": "gate-closed", "source": "driver", "event_type": "GATE_CLOSED",
+    "occurred_at": "2026-09-10T10:05:00+05:30", "ingested_at": "2026-09-10T10:13:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-2",
+    "driver_claimed_wait_minutes": 8,
+    "raw_transcript": "Goods entrance is locked. Been waiting about eight minutes."
+  },
+  {
+    "id": "gate-service", "source": "driver", "event_type": "SERVICE_STARTED",
+    "occurred_at": "2026-09-10T11:14:00+05:30", "ingested_at": "2026-09-10T11:14:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-2",
+    "raw_transcript": "Gate is open now and they have started unloading."
+  },
+  {
+    "id": "gate-completion", "source": "driver", "event_type": "STOP_COMPLETED",
+    "occurred_at": "2026-09-10T11:35:00+05:30", "ingested_at": "2026-09-10T11:35:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-2",
+    "raw_transcript": "Second delivery finished."
+  },
+  {
+    "id": "gate-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "occurred_at": "2026-09-10T11:36:00+05:30", "ingested_at": "2026-09-10T11:36:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-2",
+    "raw_transcript": "Leaving for Malabar Electrical."
+  },
+  {
+    "id": "absent-arrival", "source": "driver", "event_type": "ARRIVED_STOP",
+    "occurred_at": "2026-09-10T12:00:00+05:30", "ingested_at": "2026-09-10T12:00:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-3",
+    "raw_transcript": "Reached gate two at Malabar Electrical."
+  },
+  {
+    "id": "absent-report", "source": "driver", "event_type": "CONSIGNEE_ABSENT",
+    "occurred_at": "2026-09-10T12:02:00+05:30", "ingested_at": "2026-09-10T12:02:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-3",
+    "raw_transcript": "Stores clerk is away. Nobody here can receive the delivery."
+  },
+  {
+    "id": "absent-reattempt", "source": "system", "event_type": "REATTEMPT_SCHEDULED",
+    "occurred_at": "2026-09-10T12:10:00+05:30", "ingested_at": "2026-09-10T12:10:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-3"
+  },
+  {
+    "id": "absent-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "occurred_at": "2026-09-10T12:11:00+05:30", "ingested_at": "2026-09-10T12:11:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-3",
+    "raw_transcript": "Leaving Malabar Electrical, heading to stop four."
+  },
+  {
+    "id": "silent-late-arrival", "source": "driver", "event_type": "ARRIVED_STOP",
+    "occurred_at": "2026-09-10T14:30:00+05:30", "ingested_at": "2026-09-10T14:30:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-4",
+    "raw_transcript": "Everything alright, reached stop four now."
+  },
+  {
+    "id": "silent-service", "source": "driver", "event_type": "SERVICE_STARTED",
+    "occurred_at": "2026-09-10T14:31:00+05:30", "ingested_at": "2026-09-10T14:31:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-4",
+    "raw_transcript": "Unloading at stop four."
+  },
+  {
+    "id": "silent-completion", "source": "driver", "event_type": "STOP_COMPLETED",
+    "occurred_at": "2026-09-10T14:55:00+05:30", "ingested_at": "2026-09-10T14:55:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-4",
+    "raw_transcript": "Stop four delivered."
+  },
+  {
+    "id": "silent-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "occurred_at": "2026-09-10T14:56:00+05:30", "ingested_at": "2026-09-10T14:56:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-4",
+    "raw_transcript": "Leaving for the final delivery."
+  },
+  {
+    "id": "final-arrival", "source": "driver", "event_type": "ARRIVED_STOP",
+    "occurred_at": "2026-09-10T16:00:00+05:30", "ingested_at": "2026-09-10T16:00:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-5",
+    "raw_transcript": "Reached the final stop at Kochi Homeware."
+  },
+  {
+    "id": "final-service", "source": "driver", "event_type": "SERVICE_STARTED",
+    "occurred_at": "2026-09-10T16:01:00+05:30", "ingested_at": "2026-09-10T16:01:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-5",
+    "raw_transcript": "They have started unloading the final delivery."
+  },
+  {
+    "id": "final-completion", "source": "driver", "event_type": "STOP_COMPLETED",
+    "occurred_at": "2026-09-10T16:45:00+05:30", "ingested_at": "2026-09-10T16:45:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-5",
+    "raw_transcript": "Final delivery done and signed."
+  },
+  {
+    "id": "final-departure", "source": "driver", "event_type": "DEPARTED_STOP",
+    "occurred_at": "2026-09-10T16:46:00+05:30", "ingested_at": "2026-09-10T16:46:00+05:30",
+    "driver_id": "driver-1", "vehicle_id": "vehicle-1", "trip_id": "trip-1", "stop_id": "stop-5",
+    "raw_transcript": "Leaving the last stop."
+  }
+]
