@@ -327,6 +327,18 @@ so a discrepancy surfaces immediately instead of becoming a dispute later.
 
 Every rule fires once per (stop, rule) unless the condition clears and recurs.
 
+Clearing is not closing. `DETENTION_CROSSED` closes as an exception when service
+starts (§4.4), but the arithmetic has not changed — the wait still exceeds the
+free time. Only a fresh `ARRIVED_STOP` at that stop restarts the wait, so only
+that re-arms the rule.
+
+**A crossing is a fact about a problem, not a second problem.** If an exception
+is already open at that stop, the crossing is recorded on it —
+`cost_exposure_paise` recomputed, a line appended to `audit` — and no new
+exception is opened. The gate being shut is what the driver is dealing with;
+the free time running out is a property of that. One problem, one card on the
+board. A crossing with nothing else open at that stop opens its own.
+
 **Wording is part of the spec.** These produce *"everything alright? need
 anything?"* — never *"driver unresponsive"*, never a count of how often it
 fired. See CLAUDE.md rule 1.
@@ -341,6 +353,7 @@ fired. See CLAUDE.md rule 1.
 | `DRIVER_SILENT` | any driver-sourced event |
 | `WINDOW_AT_RISK` | `STOP_COMPLETED` before close |
 | `VEHICLE_BREAKDOWN` | `DEPARTED_STOP` |
+| `DETENTION_CROSSED` | `SERVICE_STARTED`, `DEPARTED_STOP` |
 
 Still open at trip close → `EXPIRED`.
 
