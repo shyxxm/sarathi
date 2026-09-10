@@ -249,6 +249,33 @@ def test_a_stop_that_never_unloaded_freezes_at_departure(state):
     assert row["exposure_paise"] == 6250
 
 
+def test_a_resolved_exception_stops_costing_more_every_time_it_is_read(state):
+    """The dispatcher board redraws a card at 18:00 that was resolved at 11:32.
+    It must read what the ledger billed, not what the clock has done since."""
+    state = at_stop_two(state)                          # arrival ingested 10:30
+    gate = event(EventType.GATE_CLOSED, at(10, 31), stop_id="stop-2")
+    state, _ = run(state, gate)
+    state = state.with_exceptions(exception_rules.evaluate(state, gate, at(10, 31)).opened)
+
+    crossing = watchdog.tick(state, at(11, 31))[-1]
+    state, _ = run(state, crossing)
+    state = state.with_exceptions(
+        exception_rules.evaluate(state, crossing, at(11, 31)).changed)
+
+    started = event(EventType.SERVICE_STARTED, at(11, 32), stop_id="stop-2")
+    state, _ = run(state, started)
+    state = state.with_exceptions(resolution.close_matching(state, started, at(11, 32)))
+    assert state.exceptions[0].status is ExceptionStatus.RESOLVED
+
+    at_close = exception_rules.recompute_exposure(state, state.exceptions[0], at(18, 0))
+
+    assert detention.compute(state, "stop-2", at(11, 32)).billable_minutes == 2
+    assert detention.exposure_paise(state, "stop-2", at(18, 0)) == 2 * 150
+    assert at_close.cost_exposure_paise == 300          # not 408 minutes of it
+    assert at_close.cost_exposure_paise == exception_rules.recompute_exposure(
+        state, state.exceptions[0], at(11, 32)).cost_exposure_paise
+
+
 def test_a_stop_still_waiting_keeps_running_and_freeze_at_overrides(state):
     state = at_stop_two(state)
     standing = event(EventType.GATE_CLOSED, at(11, 31), stop_id="stop-2")

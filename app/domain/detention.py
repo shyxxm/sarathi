@@ -93,11 +93,17 @@ def compute(state: TripState, stop_id: str, now: datetime) -> Detention | None:
 
 
 def exposure_paise(state: TripState, stop_id: str | None, now: datetime) -> int:
-    """Recomputed from state every time. SPEC 3.6: never accumulated in place."""
+    """Recomputed from state every time. SPEC 3.6: never accumulated in place.
+
+    Quoted at the end of the wait where there is one, so a card refreshed hours
+    later reads the same figure the ledger billed. Quoting `now` unconditionally
+    would make a resolved exception's exposure climb for the rest of the shift
+    every time a board redrew it.
+    """
     if stop_id is None:
         return 0
-    detention = compute(state, stop_id, now)
-    return detention.exposure_paise if detention else 0
+    waiting = compute(state, stop_id, wait_ended_at(state, stop_id) or now)
+    return waiting.exposure_paise if waiting else 0
 
 
 def ledger_entry(
