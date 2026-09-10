@@ -101,11 +101,10 @@ class Intent(str, Enum):
 
 class EventType(str, Enum):
     # progress
-    DEPARTED_DEPOT = "DEPARTED_DEPOT"
+    DEPARTED = "DEPARTED"          # depot or stop — apply() knows which
     ARRIVED_STOP = "ARRIVED_STOP"
     SERVICE_STARTED = "SERVICE_STARTED"
     STOP_COMPLETED = "STOP_COMPLETED"
-    DEPARTED_STOP = "DEPARTED_STOP"
     # problems
     GATE_CLOSED = "GATE_CLOSED"
     CONSIGNEE_ABSENT = "CONSIGNEE_ABSENT"
@@ -296,6 +295,19 @@ wrong stop, and asking which stop he means is the right answer.
 `SCHEDULE_REATTEMPT` action executes — not as a second way to write state. It
 therefore appears in the driver's own record of the day like everything else.
 
+**`DEPARTED` is one event, not two.** *"Eranganu"* — I've set off — is the same
+sentence whether he is leaving the depot or leaving stop 3, and nothing in the
+words tells them apart. Only the current stop status does, and the interpreter
+is not allowed to look at state (rule 3). So the model says `DEPARTED` and
+`apply()` decides what it meant: a stop still `PENDING` means he is leaving the
+depot and that stop goes `EN_ROUTE`; a stop already finished means he is
+leaving it and the next one goes `EN_ROUTE`. Anything else is rejected and he
+is asked.
+
+This is the general test for anything in `EventType`: **if two identical
+sentences map to different types depending on trip state, it is not one type
+the model can choose.** Split it in code, not in the model's vocabulary.
+
 Illegal transitions do not mutate state. They become `UNCLEAR` and push the
 reply toward asking the driver what he meant.
 
@@ -314,7 +326,7 @@ to the driver — *"you said about forty minutes; I have you arriving at 10:42"*
 so a discrepancy surfaces immediately instead of becoming a dispute later.
 
 **The waiting ends when unloading starts**, at the `ingested_at` of
-`SERVICE_STARTED` — or of `DEPARTED_STOP` where service never started at all, a
+`SERVICE_STARTED` — or of `DEPARTED` where service never started at all, a
 failed stop or a reattempt. Detention is time spent waiting, not time spent at
 the site. Billing to departure would charge the customer for the driver's own
 unloading.
@@ -367,8 +379,8 @@ fired. See CLAUDE.md rule 1.
 | `STOP_OVERDUE` | `ARRIVED_STOP` |
 | `DRIVER_SILENT` | any driver-sourced event |
 | `WINDOW_AT_RISK` | `STOP_COMPLETED` before close |
-| `VEHICLE_BREAKDOWN` | `DEPARTED_STOP` |
-| `DETENTION_CROSSED` | `SERVICE_STARTED`, `DEPARTED_STOP` |
+| `VEHICLE_BREAKDOWN` | `DEPARTED` |
+| `DETENTION_CROSSED` | `SERVICE_STARTED`, `DEPARTED` |
 
 Still open at trip close → `EXPIRED`.
 
