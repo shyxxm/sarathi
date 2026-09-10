@@ -10,10 +10,12 @@ you nothing.
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import os
 from pathlib import Path
+import re
 import sys
 import time
 
@@ -21,14 +23,48 @@ ROOT = Path(__file__).resolve().parents[1]
 if __package__ in (None, ""):
     sys.path.insert(0, str(ROOT))
 
-from app.agents.interpreter import cheap_model, interpret  # noqa: E402
+from app.agents.interpreter import cheap_model, interpret, system_prompt  # noqa: E402
 
 GOLDEN_PATH = ROOT / "app/eval/fixtures/golden_shift.json"
 LOCAL_DEFAULT = "ollama/qwen2.5:7b"
+CACHE_DIR = ROOT / ".interpreter_cache"
 
 
 def local_model() -> str:
     return os.getenv("LITELLM_MODEL_LOCAL", LOCAL_DEFAULT)
+
+
+def fingerprint(case: dict, model: str) -> str:
+    """What a cached answer was an answer to.
+
+    The prompt is in here, so editing prompts/interpreter.md invalidates every
+    row — which is exactly when you want fresh calls, and exactly when a stale
+    score would be worst.
+    """
+    material = "\0".join([system_prompt(), model, case["id"], case["text"]])
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+
+
+def cache_path(model: str) -> Path:
+    return CACHE_DIR / f"{re.sub(r'[^A-Za-z0-9._-]', '_', model)}.json"
+
+
+def load_cache(model: str) -> dict:
+    path = cache_path(model)
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}          # a half-written cache is not worth a crash
+
+
+def save_cache(model: str, cache: dict) -> None:
+    """Written after every row. The whole point is surviving a crash on row 14
+    with thirteen good calls already spent against a 20-a-day budget."""
+    path = cache_path(model)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
 def grade(case: dict, output) -> bool:
@@ -62,6 +98,11 @@ def run_one(case: dict, model: str) -> dict:
     }
 
 
+# What a cached row replays. Everything else comes from the golden file.
+RECORDED = ("ok", "error", "got_intents", "got_event", "got_legible",
+            "got_hint", "got_claimed")
+
+
 def show(title: str, rows: list[dict]) -> None:
     if not rows:
         return
@@ -83,6 +124,8 @@ def main() -> int:
                         help="run on LITELLM_MODEL_CHEAP instead of the local model")
     parser.add_argument("--pace", type=float, default=None,
                         help="seconds between calls; defaults to 0 local, 5 hosted")
+    parser.add_argument("--fresh", action="store_true",
+                        help="ignore cached rows and call for every message")
     arguments = parser.parse_args()
 
     logging.getLogger("LiteLLM").setLevel(logging.ERROR)
@@ -91,12 +134,30 @@ def main() -> int:
     print(f"model: {model}" + ("" if arguments.score else "   (local — not a quality signal)"))
 
     golden = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
-    rows = []
-    for index, case in enumerate(golden):
-        if index and pace:
+    cache = {} if arguments.fresh else load_cache(model)
+
+    rows, called, reused = [], 0, 0
+    for case in golden:
+        cached = cache.get(case["id"])
+        if cached and cached.get("fingerprint") == fingerprint(case, model):
+            rows.append({**case, **cached["row"]})
+            reused += 1
+            continue
+
+        if called and pace:
             time.sleep(pace)
-        rows.append(run_one(case, model))
+        row = run_one(case, model)
+        called += 1
         print(f"  {case['id']}", end="\r", file=sys.stderr)
+        rows.append(row)
+        if row["error"] is None:
+            # Only answers are cached. A 503 is not a result.
+            cache[case["id"]] = {"fingerprint": fingerprint(case, model),
+                                 "row": {key: row[key] for key in RECORDED}}
+            save_cache(model, cache)
+
+    if reused:
+        print(f"reused {reused} cached row(s), called {called}")
 
     for label, garbled in (("LEGIBLE", False), ("GARBLED", True)):
         subset = [row for row in rows if row["garbled"] is garbled]

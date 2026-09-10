@@ -7,6 +7,7 @@ return a `stop_id` fails validation instead of being believed. CLAUDE.md rule 3.
 
 import json
 import os
+import random
 import time
 from functools import cache
 from pathlib import Path
@@ -88,11 +89,10 @@ def _complete(transcript: str, model: str):
                 temperature=0.0,
                 response_format={"type": "json_object"},
             )
-        except TRANSIENT:
+        except TRANSIENT as error:
             if attempt == ATTEMPTS - 1:
                 raise
-            # Long enough to outlast a per-minute quota window, not just a blip.
-            time.sleep(min(60, 4 ** (attempt + 1)))
+            time.sleep(_pause(error, attempt))
 
 
 def _parse(content: str, transcript: str) -> InterpreterOutput:
@@ -111,3 +111,18 @@ def _parse(content: str, transcript: str) -> InterpreterOutput:
         raise InterpreterError(
             f"{output.event_type.value} is system-generated; a driver cannot report it")
     return output
+
+
+def _pause(error: Exception, attempt: int) -> float:
+    """How long to wait before trying again, by what went wrong.
+
+    Capacity and connection failures clear in seconds — 1s, 2s, 4s, jittered so
+    that callers retrying together do not come back in lockstep. A rate limit is
+    the only one worth waiting minutes for, because the window it is counting
+    against has to expire first: 4s, 16s, 60s.
+
+    Treating an overload blip like a quota exhaustion cost 80 seconds a message.
+    """
+    if isinstance(error, litellm.exceptions.RateLimitError):
+        return min(60.0, 4.0 ** (attempt + 1))
+    return 2.0**attempt * random.uniform(0.8, 1.3)
