@@ -41,6 +41,10 @@ def test_replay_walks_every_minute_and_covers_the_four_scenarios(monkeypatch):
     # of its own: 60 free minutes from the 10:12 arrival, one minute billable.
     assert "11:13  EXCEPTION UPDATED  GATE_CLOSED  stop=stop-2  exposure=150p" in lines
     assert "11:14  EXCEPTION RESOLVED  GATE_CLOSED  stop=stop-2" in lines
+    # "over" is not a completion. Sarathi asks what he meant and he answers a
+    # minute later: the first clarification round-trip, visible in his record.
+    assert "11:35  vehicle-1 -> stop-2  UNCLEAR  (driver)" in lines
+    assert "11:36  vehicle-1 -> stop-2  COMPLETED" in lines
     assert "12:10  EXCEPTION RESOLVED  CONSIGNEE_ABSENT  stop=stop-3" in lines
     assert "14:16  EXCEPTION OPENED  STOP_OVERDUE  stop=stop-4  (watchdog)" in lines
     assert "14:30  EXCEPTION RESOLVED  STOP_OVERDUE  stop=stop-4" in lines

@@ -112,6 +112,20 @@
     "in_prompt": true
   },
   {
+    "id": "m08b",
+    "occurred_at": "11:36",
+    "text": "delivery kazhinju sir",
+    "garbled": false,
+    "expected_intents": [
+      "REPORT"
+    ],
+    "expected_event_type": "STOP_COMPLETED",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "in_prompt": false
+  },
+  {
     "id": "m09",
     "occurred_at": "12:00",
     "text": "sir ethiyittund",
