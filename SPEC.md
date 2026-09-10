@@ -313,6 +313,21 @@ on the dispatcher card and the claimed figure is what Sarathi acknowledges back
 to the driver — *"you said about forty minutes; I have you arriving at 10:42"* —
 so a discrepancy surfaces immediately instead of becoming a dispute later.
 
+**The waiting ends when unloading starts**, at the `ingested_at` of
+`SERVICE_STARTED` — or of `DEPARTED_STOP` where service never started at all, a
+failed stop or a reattempt. Detention is time spent waiting, not time spent at
+the site. Billing to departure would charge the customer for the driver's own
+unloading.
+
+`now` is still what the formula above takes, because a stop still in progress
+has no end yet and the dispatcher card has to show the wait running. Where the
+waiting has ended, the ledger freezes there.
+
+**The ledger is written by the `LOG_DETENTION` action and by nothing else.** The
+watchdog notices the crossing and says so; it does not write a row. One write
+path, so the billed figure and the record of how it was reached cannot
+disagree.
+
 ### 4.3 Watchdog
 
 | Rule | Condition | Emits | Driver-facing |
