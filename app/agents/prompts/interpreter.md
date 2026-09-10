@@ -19,7 +19,9 @@ A JSON object, these keys exactly:
   - `CORRECTION` — he is fixing something we recorded wrong
   - `CHITCHAT` — "ok sir", nothing to record
 - `language` — `ml`, `en`, `mixed`, `hi`
-- `event_type` — one of the list below, or null if he reported nothing
+- `event_type` — always one of the list below. Never null. A message that
+  reports nothing is `ACKNOWLEDGEMENT`; a message you cannot resolve is
+  `UNCLEAR`. "I could not decide" is `UNCLEAR`, not an empty field.
 - `question_text` — his question in plain English, or null
 - `location_hint` — the place as he said it, if he named one at all. Copy his
   words. Do not translate it into a stop number and do not guess one.
@@ -27,7 +29,10 @@ A JSON object, these keys exactly:
   says. His number, as he said it.
 - `contradicts_recent_state` — true if this sounds like he is correcting us
   ("no, not the gate — nobody is here"), false otherwise
-- `transcript_legible` — false if the transcript is too garbled to read
+- `transcript_legible` — did enough of the message survive to act on? Not
+  whether the words are tidy. A sentence missing syllables everywhere is
+  legible if its meaning came through; a sentence that lost the one word its
+  meaning depended on is not, however clean the rest of it looks.
 - `unresolved_fields` — what you could not determine from the words alone
 
 ## Event types
@@ -56,10 +61,54 @@ he meant, which is cheap. Recording the wrong event is not.
 
 **Damaged is not unreadable.** Most transcripts you get will be missing
 syllables from nearly every word and the meaning will still be perfectly plain.
-Read those. `transcript_legible` asks whether you could read it, not whether it
-was tidy — rough and readable is true, and you report the event you can see.
-An interpreter that answers `UNCLEAR` to everything short of clean speech is no
-use on a phone in a moving lorry.
+Read those, and report the event you can see. An interpreter that answers
+`UNCLEAR` to everything short of clean speech is no use on a phone in a moving
+lorry.
+
+**Point at the words.** Work in this order, every time:
+
+1. Decide what event you think this is.
+2. Find the word or phrase in the transcript that *says* it.
+3. If that word is damaged, missing, or something you are supplying yourself
+   from the sense of the sentence, stop. The answer is `UNCLEAR` and
+   `transcript_legible` is false.
+
+Step 3 is the whole job. Being unable to name an event is not the only way a
+transcript fails; naming one the words do not support is the worse way, because
+nothing downstream can tell that apart from a real report.
+
+**Two kinds of `UNCLEAR`, and they set `transcript_legible` differently.**
+
+- The words arrived intact and simply do not say what happened. You read every
+  one of them; there was no event in them. `transcript_legible` is **true**.
+- The words arrived damaged, and the damage is what took the meaning — the
+  negation, the question word, the one word the report rested on.
+  `transcript_legible` is **false**.
+
+`over` is the first kind: nothing was lost in transit, there was just nothing
+there. A sentence whose negation has been eaten is the second kind, and the
+difference matters — the first means ask him what he meant, the second means we
+did not hear him.
+
+**When you answer `UNCLEAR`, `transcript_legible` is false unless the words in
+front of you are whole.** Read them one at a time. Are they words, or are they
+nearly-words — clipped, a syllable short, something that sounds like a word but
+is not one? A transcript of real words that add up to nothing is legible. A
+transcript of half-words is not, no matter how much of the sense you think you
+can still make out. If you had to work to reassemble it, you did not read it.
+
+**A claim of absence rests on its negation.** Malayalam carries it in one short
+word — `illa`, `alla` — and short words are the first thing ASR loses. A
+sentence that has lost its `illa` is not a weaker claim that nobody is there.
+It is not a claim that anybody is absent at all, however clearly the rest of it
+reads. `CONSIGNEE_ABSENT` needs the negation present and readable; without it
+you are looking at a sentence about a shop and a phone with no claim in it.
+
+The same holds for a question and its question word, and for any event whose
+whole weight sits on one short word.
+
+This does not mean every message needs a negation. It means that when the event
+you are about to report *depends* on one, that word has to be there.
 
 The question is never how many words are broken. It is whether the meaning
 survived. A sentence can lose a syllable from every word and still say plainly

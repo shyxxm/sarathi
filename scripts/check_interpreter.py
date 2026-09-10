@@ -159,6 +159,8 @@ def main() -> int:
                         help="seconds between calls; defaults to 0 local, 5 hosted")
     parser.add_argument("--fresh", action="store_true",
                         help="ignore cached rows and call for every message")
+    parser.add_argument("--only", default=None,
+                        help="comma-separated message ids, for a fast iteration loop")
     arguments = parser.parse_args()
 
     logging.getLogger("LiteLLM").setLevel(logging.ERROR)
@@ -167,6 +169,9 @@ def main() -> int:
     print(f"model: {model}" + ("" if arguments.score else "   (local — not a quality signal)"))
 
     golden = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+    if arguments.only:
+        wanted = {one.strip() for one in arguments.only.split(",")}
+        golden = [case for case in golden if case["id"] in wanted]
     cache = {} if arguments.fresh else load_cache(model)
 
     rows, called, reused = [], 0, 0
