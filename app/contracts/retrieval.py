@@ -90,12 +90,34 @@ class RetrievalResult(BaseModel):
     those a human marked APPROVED. That is enforced where the index is written,
     not here — but anything appearing in this list is a claim that a person
     signed off on it. See CLAUDE.md rule 9.
+
+    `sop_chunks` is everything the store returned. It is not what may be
+    spoken from. A vector store always returns its top-k, however bad the
+    match, so "we got three chunks back" is not evidence that any of them are
+    about the question. `cited_sop_chunks` is the subset that cleared
+    `relevance_floor`, and every §5 signal derives from that subset.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     sop_chunks: tuple[RetrievedChunk, ...] = ()
     precedents: tuple[RetrievedChunk, ...] = ()
+
+    # The similarity a chunk has to beat before it counts as relevant, measured
+    # per customer and per embedding model — never a constant chosen by hand.
+    #
+    # Cosine similarity has no absolute meaning across models. On
+    # gemini-embedding-001 the seeded SOPs score ~0.60 against deliberately
+    # off-topic probes (a burst tyre, lunch on the bypass) and ~0.65-0.75
+    # against real questions. A fixed 0.5 threshold would call every one of
+    # those a citation; a fixed 0.65 would be wrong the day the model changes.
+    # So the floor is `measured noise + margin`, and the measurement is redone
+    # whenever the corpus is indexed. See app/retrieval/baseline.py.
+    #
+    # 0.0 means no floor was supplied — every chunk counts. That is the honest
+    # representation of "not measured", not a safe default, and `Retriever`
+    # refuses to return chunks without a measured floor behind them.
+    relevance_floor: float = Field(default=0.0, ge=0.0, le=1.0)
 
     @field_validator("sop_chunks", "precedents", mode="after")
     @classmethod
@@ -121,9 +143,27 @@ class RetrievalResult(BaseModel):
             )
         return tuple(sorted(chunks, key=lambda chunk: chunk.score, reverse=True))
 
+    def _cleared(self, chunks: tuple[RetrievedChunk, ...]) -> tuple[RetrievedChunk, ...]:
+        return tuple(chunk for chunk in chunks if chunk.score >= self.relevance_floor)
+
+    @property
+    def cited_sop_chunks(self) -> tuple[RetrievedChunk, ...]:
+        """The SOP chunks that cleared the floor, best first. Possibly empty.
+
+        Empty here is a real answer, and the one rule 7 was written for: the
+        store had nothing relevant, so there is no standing instruction behind
+        whatever we were about to say, and Sarathi says it will find out.
+        """
+        return self._cleared(self.sop_chunks)
+
     @property
     def retrieval_score(self) -> float:
-        """The §5 signal. The top SOP chunk's score, 0.0 when nothing was found.
+        """The §5 signal. The top *cited* SOP chunk's score, 0.0 when none.
+
+        0.0 means no chunk cleared the floor. It does not mean the store came
+        back empty — it usually did not. Scoring the top chunk unconditionally
+        would hand §5 a number near 0.6 for a question about a burst tyre, and
+        §5 would read that as context it does not have.
 
         Precedents are deliberately not counted. A confident precedent match
         with no SOP behind it is exactly the case rule 7 exists for: it means
@@ -131,14 +171,24 @@ class RetrievalResult(BaseModel):
         a decision it made earlier, with no standing instruction supporting it.
         That must escalate, not speak.
         """
-        return self.sop_chunks[0].score if self.sop_chunks else 0.0
+        cited = self.cited_sop_chunks
+        return cited[0].score if cited else 0.0
 
     @property
     def cited_sop_ids(self) -> list[str]:
         """Ids the responder is permitted to cite. Rule 7: a claim about the
         driver's pay or liability needs one of these, and an id that did not
-        come from a retrieved chunk is not a citation."""
-        return [chunk.id for chunk in self.sop_chunks]
+        clear the relevance floor is not a citation — it is a chunk the store
+        returned because it had to return something."""
+        return [chunk.id for chunk in self.cited_sop_chunks]
+
+    @property
+    def has_context(self) -> bool:
+        """Whether anything relevant came back at all. The §5 `no SOP cited`
+        branch is the negation of this, and it must be reachable: a retriever
+        that always returns three chunks makes it dead code, and rule 7 goes
+        with it."""
+        return bool(self.cited_sop_chunks or self._cleared(self.precedents))
 
     def __bool__(self) -> bool:
-        return bool(self.sop_chunks or self.precedents)
+        return self.has_context
