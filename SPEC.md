@@ -283,16 +283,51 @@ class OperationalEvent:
 
 ```python
 @dataclass
-class DriverReply:
+class Claim:
+    text: str                        # one assertion, checkable on its own
+    cited_chunk_id: str              # the chunk it rests on
+
+@dataclass
+class ResponderOutput:               # the model boundary. no mode.
+    language: Language
+    text: str
+    restated_facts: list[str]
+    claims: list[Claim]
+    confidence: float                # §5 caps its weight at 0.20
+
+@dataclass
+class DriverReply:                   # what the router assembles
     mode: ReplyMode
     language: Language
     text: str                       # in the driver's language
     restated_facts: list[str]        # what we understood — always populated
-    cited_sop_ids: list[str]
+    claims: list[Claim]              # what survived grounding
+    cited_sop_ids: list[str]         # derived from claims, never carried beside them
     audio_path: str | None = None
 ```
 
 `restated_facts` is not optional and not decorative. It is §2.
+
+**`claims` is what makes §5.1 possible.** A reply that returns one paragraph
+with a citation stapled to it cannot be grounded: there is no unit small enough
+to ask *does this passage support this sentence* about. So the responder emits
+the assertions it is making individually, each already attributed to the chunk
+it rests on, and the critic checks them one at a time.
+
+The two lists are not the same kind of thing and only one of them is
+grounding's business. `restated_facts` comes from state — the stop, the event,
+the clock — and is checked by the driver himself when he hears it back (§2).
+`claims` comes from retrieval, asserts what the customer's rules say, and is
+checked against the chunk text before it may be spoken. Facts are never
+grounded against a SOP and claims are never taken on trust.
+
+`cited_sop_ids` is derived from `claims`, not carried alongside them, so the
+reply cannot list a citation that no sentence in it rests on. That invariant is
+enforced on the contract. It is the structural half of rule 7 — the half a
+model cannot talk its way past — and the grounding check is the other half.
+
+The responder never sets `mode`. `ResponderOutput` has no field for it, so a
+prompt cannot route itself; §5 decides in code.
 
 ### 3.5 Decision (ops side)
 
@@ -558,10 +593,26 @@ Router:
 | `0.5 <= confidence < 0.75`, or `risk == HIGH` with SOP cited | `SPEAK_HEDGED` |
 | `confidence < 0.5`, or no SOP cited, or entity unresolved | `ESCALATE` |
 
+Weights, summing to one: `entity_resolution` 0.30, `transcript_legible` 0.25,
+`retrieval_score` 0.25, `self_rating` 0.20 — at its cap, because it is the one
+signal that can be confidently wrong for the same reason the reply is.
+
+**"No SOP cited" attaches to claims, not to replies.** A reply that asserts
+nothing about the customer's rules needs no citation: *"gate closed at stop 2,
+waiting counted from 10:12"* restates our own records, and requiring a SOP
+behind it would escalate every acknowledgement on the shift. Rule 7 is worded
+the same way — no claim about pay or liability *without* a cited SOP. No claim,
+nothing to cite. So the ESCALATE row fires when a claim was made and did not
+survive grounding, not when `claims` is simply empty.
+
 Two hard overrides regardless of score:
 
 1. Any claim about **what the driver is owed or liable for** requires a cited
-   SOP. No citation, no claim — Sarathi says it will find out.
+   SOP that supports it. No citation, no claim — Sarathi says it will find out.
+   A claim that fails grounding is not merely dropped from `cited_sop_ids`:
+   the drafted text still contains the sentence that made it, so the draft is
+   not spoken at all. The reply is rebuilt from `restated_facts`, which came
+   from state and were never in question.
 2. Any outbound customer communication requires human approval.
 
 `ESCALATE` still speaks to the driver. It says a person is looking at it. It

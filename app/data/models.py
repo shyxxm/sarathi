@@ -195,6 +195,9 @@ class Reply(Base):
     language: Mapped[Language] = mapped_column(enum_column(Language))
     text: Mapped[str]
     restated_facts: Mapped[list[str]] = mapped_column(JSON)
+    # Stored with the reply, not derived on read: what was cited has to stay
+    # readable exactly as it was spoken, even after the SOP is reindexed.
+    claims: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, server_default="[]")
     cited_sop_ids: Mapped[list[str]] = mapped_column(JSON)
     audio_path: Mapped[str | None]
 

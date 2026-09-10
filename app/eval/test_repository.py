@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import json
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine, event, insert, inspect, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -11,7 +12,7 @@ from app.contracts.decision import ActionType, Decision, DecisionAction
 from app.contracts.enums import EventType, ExceptionStatus, ReplyMode, StopStatus
 from app.contracts.event import OperationalEvent
 from app.contracts.exception import OperationalException
-from app.contracts.reply import DriverReply
+from app.contracts.reply import Claim, DriverReply
 from app.data.models import Base, SHIFT_TIMEZONE
 from app.data.repository import SEED_DIRECTORY, create_schema, load, load_all, load_seed_data, save
 
@@ -173,7 +174,9 @@ def test_reply_round_trip_and_required_readback(engine):
     arrival(engine)
     reply = DriverReply(
         mode=ReplyMode.SPEAK, language="ml", text="രണ്ടാമത്തെ സ്റ്റോപ്പിൽ എത്തിയതായി രേഖപ്പെടുത്തി.",
-        restated_facts=["Arrived at stop two at 10:42"], cited_sop_ids=["SOP-2"],
+        restated_facts=["Arrived at stop two at 10:42"],
+        claims=[Claim(text="Free waiting time here is 60 minutes.", cited_chunk_id="SOP-2")],
+        cited_sop_ids=["SOP-2"],
     )
     values = reply.model_dump() | dict(
         id="reply-1", driver_id="driver-1", source_message_id="voice-note-1",
@@ -183,6 +186,10 @@ def test_reply_round_trip_and_required_readback(engine):
     with pytest.raises(IntegrityError):
         save(engine, "replies", values | {"restated_facts": []})
     assert load(engine, "replies", "reply-1")["restated_facts"] == reply.restated_facts
+
+    # A citation no sentence rests on is not a citation. SPEC 3.4.
+    with pytest.raises(ValidationError, match="does not match the chunks"):
+        DriverReply.model_validate(reply.model_dump() | {"claims": []})
 
 
 def test_seed_import_is_atomic(engine, tmp_path):
