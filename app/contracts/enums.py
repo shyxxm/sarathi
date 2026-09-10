@@ -1,0 +1,69 @@
+from enum import Enum
+
+
+class Language(str, Enum):
+    ML = "ml"
+    EN = "en"
+    MIXED = "mixed"
+    HI = "hi"
+
+
+class Intent(str, Enum):
+    REPORT = "REPORT"
+    QUESTION = "QUESTION"
+    CORRECTION = "CORRECTION"
+    CHITCHAT = "CHITCHAT"
+
+
+class EventType(str, Enum):
+    # progress
+    DEPARTED_DEPOT = "DEPARTED_DEPOT"
+    ARRIVED_STOP = "ARRIVED_STOP"
+    SERVICE_STARTED = "SERVICE_STARTED"
+    STOP_COMPLETED = "STOP_COMPLETED"
+    DEPARTED_STOP = "DEPARTED_STOP"
+    # problems
+    GATE_CLOSED = "GATE_CLOSED"
+    CONSIGNEE_ABSENT = "CONSIGNEE_ABSENT"
+    VEHICLE_BREAKDOWN = "VEHICLE_BREAKDOWN"
+    DOCUMENT_ISSUE = "DOCUMENT_ISSUE"
+    SHORTAGE_OR_DAMAGE = "SHORTAGE_OR_DAMAGE"
+    DELIVERY_REFUSED = "DELIVERY_REFUSED"
+    # non-events
+    ACKNOWLEDGEMENT = "ACKNOWLEDGEMENT"
+    UNCLEAR = "UNCLEAR"
+    # system-generated only
+    STOP_OVERDUE = "STOP_OVERDUE"
+    DRIVER_SILENT = "DRIVER_SILENT"
+    WINDOW_AT_RISK = "WINDOW_AT_RISK"
+    DETENTION_CROSSED = "DETENTION_CROSSED"
+
+
+class StopStatus(str, Enum):
+    PENDING = "PENDING"
+    EN_ROUTE = "EN_ROUTE"
+    ARRIVED = "ARRIVED"
+    IN_SERVICE = "IN_SERVICE"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    REATTEMPT_SCHEDULED = "REATTEMPT_SCHEDULED"
+
+
+class ExceptionStatus(str, Enum):
+    OPEN = "OPEN"
+    ACTING = "ACTING"
+    MONITORING = "MONITORING"
+    RESOLVED = "RESOLVED"
+    EXPIRED = "EXPIRED"
+
+
+class ResolutionStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"  # human confirmed — ONLY these become precedent
+    REJECTED = "REJECTED"
+
+
+class ReplyMode(str, Enum):
+    SPEAK = "SPEAK"
+    SPEAK_HEDGED = "SPEAK_HEDGED"
+    ESCALATE = "ESCALATE"
