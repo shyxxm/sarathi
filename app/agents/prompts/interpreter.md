@@ -19,9 +19,10 @@ A JSON object, these keys exactly:
   - `CORRECTION` — he is fixing something we recorded wrong
   - `CHITCHAT` — "ok sir", nothing to record
 - `language` — `ml`, `en`, `mixed`, `hi`
-- `event_type` — always one of the list below. Never null. A message that
-  reports nothing is `ACKNOWLEDGEMENT`; a message you cannot resolve is
-  `UNCLEAR`. "I could not decide" is `UNCLEAR`, not an empty field.
+- `event_type` — one of the list below, or null if you cannot name one. **A
+  blank is better than a guess.** Leaving it empty says you did not know, and
+  that is useful; a named event the words do not support cannot be told apart
+  from a real report by anything downstream.
 - `question_text` — his question in plain English, or null
 - `location_hint` — the place as he said it, if he named one at all. Copy his
   words. Do not translate it into a stop number and do not guess one.
