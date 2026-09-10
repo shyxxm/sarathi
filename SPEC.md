@@ -496,6 +496,26 @@ risk = HIGH if (
 ) else LOW
 ```
 
+`retrieval_score` is the **top SOP chunk's** similarity, and 0.0 when nothing
+came back. Precedents do not count toward it, however well they match.
+
+Rule 7 governs claims about what the driver is owed or is liable for, and the
+only thing that settles those is the customer's standing terms. A precedent is
+a resemblance — *this looked like that, and that was resolved this way.* It is
+useful context for a decision. It is not a source of authority about terms.
+Letting a strong precedent stand in for a missing SOP would have Sarathi citing
+its own past behaviour as the reason a driver is covered, which is the
+mechanism by which one mistake becomes policy — and §6 already keeps unreviewed
+decisions out of the index for the same reason.
+
+So a well-precedented situation with thin SOP coverage escalates. **That is the
+intended behaviour, not a gap in it.** It is exactly the case where Sarathi says
+it will find out and routes to a human, which is the honest answer when nobody
+ever wrote the terms down.
+
+One implementation, `RetrievalResult.retrieval_score`. A signal that means
+different things in different callers is not a signal.
+
 Router:
 
 | Condition | Mode |
