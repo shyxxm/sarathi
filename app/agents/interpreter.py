@@ -20,6 +20,7 @@ from app.contracts.enums import EventType, Intent
 from app.contracts.event import InterpreterOutput
 
 load_dotenv()
+litellm.suppress_debug_info = True
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "interpreter.md"
 

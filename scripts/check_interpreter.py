@@ -67,12 +67,19 @@ def save_cache(model: str, cache: dict) -> None:
     path.write_text(json.dumps(cache, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
-def grade(case: dict, output) -> bool:
-    """A garbled row is graded on the two things that matter: it refused to
-    invent an event, and it said so. Intents are not graded there — if the
-    words cannot be read, whether he was reporting or asking cannot be either."""
+def grade(case: dict, output) -> bool | None:
+    """True, False, or None for a row that never reached the model.
+
+    None is not False. A 429 is not the interpreter getting the answer wrong,
+    and counting it as one understates the prompt by however many calls the
+    provider refused. Errors are their own bucket and never enter the score.
+
+    A garbled row is graded on the two things that matter: it refused to invent
+    an event, and it said so. Intents are not graded there — if the words cannot
+    be read, whether he was reporting or asking cannot be either.
+    """
     if output is None:
-        return False
+        return None
     event = output.event_type.value if output.event_type else None
     if case["garbled"]:
         return event == "UNCLEAR" and output.transcript_legible is False
@@ -103,6 +110,20 @@ RECORDED = ("ok", "error", "got_intents", "got_event", "got_legible",
             "got_hint", "got_claimed")
 
 
+def tally(rows: list[dict]) -> str:
+    """Scored, errored and total, kept apart. A run where the provider refused
+    ten calls has no business printing 1/11 as if it were a score."""
+    scored = [row for row in rows if row["ok"] is not None]
+    errored = len(rows) - len(scored)
+    correct = sum(1 for row in scored if row["ok"])
+    if not scored:
+        return f"nothing scored  ·  {errored} errored  ·  {len(rows)} total"
+    line = f"{correct}/{len(scored)} correct"
+    if errored:
+        line += f"  ·  {errored} errored, not scored"
+    return f"{line}  ·  {len(rows)} total"
+
+
 def show(title: str, rows: list[dict]) -> None:
     if not rows:
         return
@@ -114,7 +135,7 @@ def show(title: str, rows: list[dict]) -> None:
             expected = "UNCLEAR / legible=False"
         else:
             expected = f"{'+'.join(row['expected_intents'])} / {row['expected_event_type']}"
-        mark = "  " if row["ok"] else "X "
+        mark = {True: "  ", False: "X ", None: "! "}[row["ok"]]
         print(f"{mark}{row['id']:<6}{row['text'][:52]:<54}{got:<34}{expected}")
 
 
@@ -165,10 +186,18 @@ def main() -> int:
         show(f"{label}  ·  in prompt — recited, not evidence",
              [row for row in subset if row["in_prompt"]])
 
-    held = [row for row in rows if not row["in_prompt"]]
-    print(f"\nheld out {sum(row['ok'] for row in held)}/{len(held)}")
+    print()
+    for label, subset in (("held out", [r for r in rows if not r["in_prompt"]]),
+                          ("in prompt", [r for r in rows if r["in_prompt"]])):
+        print(f"{label:<10}{tally(subset)}")
 
-    failures = [row for row in rows if not row["ok"]]
+    errored = [row for row in rows if row["ok"] is None]
+    if errored:
+        print(f"\n{len(errored)} row(s) never reached the model — not scored")
+        for row in errored:
+            print(f"  {row['id']:<6}{row['error']}")
+
+    failures = [row for row in rows if row["ok"] is False]
     print(f"\n{len(failures)} mismatch(es)")
     for row in failures:
         print(f"\n  {row['id']}{'  (garbled)' if row['garbled'] else ''}  {row['text']}")
@@ -177,8 +206,6 @@ def main() -> int:
         expected = ("UNCLEAR / legible=False" if row["garbled"]
                     else f"{'+'.join(row['expected_intents'])} / {row['expected_event_type']}")
         print(f"      expected {expected}")
-        if row["error"]:
-            print(f"      error    {row['error']}")
     return 0
 
 
