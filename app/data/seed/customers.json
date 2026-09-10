@@ -1,0 +1,32 @@
+[
+  {
+    "id": "customer-1",
+    "name": "Periyar Wholesale Foods",
+    "free_detention_minutes": 30,
+    "detention_rate_paise_per_min": 250,
+    "reattempt_cutoff_time": "16:00:00",
+    "site_contact": "Receiving supervisor at the main gate security desk",
+    "gate_procedure": "Present the LR and invoice at the main gate; security issues a gate-in slip before unloading.",
+    "delivery_window_policy": "Delivery windows are strict. Late arrivals require receiving supervisor approval; reattempts must arrive before 16:00 Asia/Kolkata."
+  },
+  {
+    "id": "customer-2",
+    "name": "Kochi Homeware Distributors",
+    "free_detention_minutes": 60,
+    "detention_rate_paise_per_min": 150,
+    "reattempt_cutoff_time": "17:00:00",
+    "site_contact": "Warehouse coordinator at the goods entrance intercom",
+    "gate_procedure": "Use the goods entrance, ring the intercom and show the LR; wait in the marked bay until the coordinator assigns a dock.",
+    "delivery_window_policy": "Arrivals up to 30 minutes after the booked window may unload if a dock is available. Same-day reattempts are accepted before 17:00 Asia/Kolkata."
+  },
+  {
+    "id": "customer-3",
+    "name": "Malabar Electrical Supplies",
+    "free_detention_minutes": 15,
+    "detention_rate_paise_per_min": 400,
+    "reattempt_cutoff_time": "14:00:00",
+    "site_contact": "Stores clerk at the delivery counter beside gate two",
+    "gate_procedure": "Enter through gate two and obtain a stores clerk signature on the LR before moving to the unloading area.",
+    "delivery_window_policy": "Delivery is by appointment only, with no late-arrival grace. Reattempts require a new appointment before 14:00 Asia/Kolkata; later requests move to the next working day."
+  }
+]
