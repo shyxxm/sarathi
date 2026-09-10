@@ -44,18 +44,23 @@ def record(
             emit(f"{now:%H:%M}  DETENTION_CROSSED  "
                  f"billable={waiting.billable_minutes}min  stop={event.stop_id}")
 
-    opened = exception_rules.evaluate(state, event, now)
-    state = state.with_exceptions(opened)
+    evaluation = exception_rules.evaluate(state, event, now)
+    state = state.with_exceptions(evaluation.changed)
     closed = resolution.close_matching(state, event, now)
     state = state.with_exceptions(closed)
-    for exception in opened:
+    for exception in evaluation.opened:
         emit(f"{now:%H:%M}  EXCEPTION OPENED  {exception.exception_type.value}  "
              f"stop={exception.stop_id or '-'}  ({origin})")
+    for exception in evaluation.amended:
+        emit(f"{now:%H:%M}  EXCEPTION UPDATED  {exception.exception_type.value}  "
+             f"stop={exception.stop_id or '-'}  "
+             f"exposure={exception.cost_exposure_paise}p")
     for exception in closed:
         emit(f"{now:%H:%M}  EXCEPTION RESOLVED  {exception.exception_type.value}  "
              f"stop={exception.stop_id or '-'}")
 
-    if not outcome.transitions and not opened and event.event_type is not EventType.DETENTION_CROSSED:
+    if (not outcome.transitions and not evaluation.changed
+            and event.event_type is not EventType.DETENTION_CROSSED):
         emit(f"{now:%H:%M}  {state.vehicle_id} -> {event.stop_id or '-'}  "
              f"{event.event_type.value}  ({origin})")
     return state

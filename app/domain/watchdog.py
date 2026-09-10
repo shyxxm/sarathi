@@ -64,9 +64,12 @@ def _clears(
     state: TripState, rule: EventType, event: OperationalEvent, stop_id: str | None,
 ) -> bool:
     if rule is EventType.DETENTION_CROSSED:
-        # Not in the SPEC 4.4 table: detention has no exception closure there.
-        # A fresh arrival at the same stop restarts the observed wait, so the
-        # condition has genuinely cleared and may cross again.
+        # Clearing is not closing, and this is the one rule where they differ.
+        # SPEC 4.4 closes the exception when service starts: the problem is
+        # over. The arithmetic is not over — the wait still exceeds the free
+        # time, and will for the rest of the stop. Re-arming on the closure
+        # would fire the rule again the minute after service started. Only a
+        # fresh arrival restarts the observed wait, so only that re-arms it.
         return event.event_type is EventType.ARRIVED_STOP and event.stop_id == stop_id
     return resolution.closes(rule, event, stop_id=stop_id, stop=state.stop(stop_id))
 

@@ -37,6 +37,9 @@ def test_replay_walks_every_minute_and_covers_the_four_scenarios(monkeypatch):
     assert not any(exception.stop_id == "stop-1" for exception in state.exceptions)
     assert "10:13  EXCEPTION OPENED  GATE_CLOSED  stop=stop-2  (driver)" in lines
     assert "11:13  DETENTION_CROSSED  billable=1min  stop=stop-2" in lines
+    # The crossing lands on the gate closure he is stuck behind, not on a card
+    # of its own: 60 free minutes from the 10:12 arrival, one minute billable.
+    assert "11:13  EXCEPTION UPDATED  GATE_CLOSED  stop=stop-2  exposure=150p" in lines
     assert "11:14  EXCEPTION RESOLVED  GATE_CLOSED  stop=stop-2" in lines
     assert "12:10  EXCEPTION RESOLVED  CONSIGNEE_ABSENT  stop=stop-3" in lines
     assert "14:16  EXCEPTION OPENED  STOP_OVERDUE  stop=stop-4  (watchdog)" in lines
@@ -45,9 +48,13 @@ def test_replay_walks_every_minute_and_covers_the_four_scenarios(monkeypatch):
     overdue = [e for e in state.events if e.event_type is EventType.STOP_OVERDUE]
     assert len(crossings) == len(overdue) == 1
     assert overdue[0].source == "system"
-    assert all(e.status is ExceptionStatus.RESOLVED for e in state.exceptions
-               if e.exception_type is not EventType.DETENTION_CROSSED)
-    assert "18:00  EXCEPTION EXPIRED  DETENTION_CROSSED  stop=stop-2" in lines
+    assert all(e.status is ExceptionStatus.RESOLVED for e in state.exceptions)
+    assert not any(e.exception_type is EventType.DETENTION_CROSSED for e in state.exceptions)
+    assert not any("EXPIRED" in line for line in lines)
+    gate = next(e for e in state.exceptions if e.exception_type is EventType.GATE_CLOSED)
+    assert [entry["action"] for entry in gate.audit] == [
+        "OPENED", "DETENTION_CROSSED", "RESOLVED"]
+    assert gate.cost_exposure_paise == 150
 
 
 def test_replay_is_repeatable_and_script_runs_from_another_directory(tmp_path):

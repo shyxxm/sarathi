@@ -225,6 +225,20 @@ def test_a_ledger_row_written_at_departure_freezes_there(state):
     assert detention.ledger_entry(state, "stop-3", departure, at(15, 0)) is None
 
 
+def test_the_wait_is_anchored_on_arrival_not_on_the_problem_report(state):
+    """He arrives, and a minute later says the gate is shut. The free time runs
+    from the arrival. Anchoring on the problem report would quietly hand the
+    customer a free minute for every minute the driver took to speak up."""
+    state = at_stop_two(state)                      # arrival ingested 10:30
+    gate = event(EventType.GATE_CLOSED, at(10, 31), stop_id="stop-2")
+    state, _ = run(state, gate)
+
+    assert detention.compute(state, "stop-2", at(11, 31)).arrival_observed_at == at(10, 30)
+    assert fired(watchdog.tick(state, at(11, 30)), EventType.DETENTION_CROSSED) == []
+    crossed = fired(watchdog.tick(state, at(11, 31)), EventType.DETENTION_CROSSED)
+    assert [one.stop_id for one in crossed] == ["stop-2"]   # 60 min after 10:30, not 10:31
+
+
 def test_the_same_wait_costs_differently_per_customer(state):
     state = arrive(state, "stop-1", at(10, 0))           # customer-1: 30 free, 250 paise
     assert detention.compute(state, "stop-1", at(11, 0)).exposure_paise == 30 * 250
@@ -298,7 +312,7 @@ def test_an_exception_opens_once_per_stop_and_carries_the_exposure(state):
     gate = event(EventType.GATE_CLOSED, at(9, 40), stop_id="stop-1")
     state, _ = run(state, gate)
 
-    opened = exception_rules.evaluate(state, gate, at(9, 40))
+    opened = exception_rules.evaluate(state, gate, at(9, 40)).opened
     assert len(opened) == 1
     assert opened[0].stop_id == "stop-1" and opened[0].opened_by == "driver"
     assert opened[0].status is ExceptionStatus.OPEN
@@ -307,20 +321,86 @@ def test_an_exception_opens_once_per_stop_and_carries_the_exposure(state):
 
     state = state.with_exceptions(opened)
     again = event(EventType.GATE_CLOSED, at(9, 50), stop_id="stop-1", id="event-again")
-    assert exception_rules.evaluate(state, again, at(9, 50)) == []
+    assert exception_rules.evaluate(state, again, at(9, 50)).changed == ()
+
+
+def test_a_crossing_is_recorded_on_the_problem_he_is_already_stuck_behind(state):
+    state = at_stop_two(state)
+    gate = event(EventType.GATE_CLOSED, at(10, 31), stop_id="stop-2")
+    state, _ = run(state, gate)
+    state = state.with_exceptions(exception_rules.evaluate(state, gate, at(10, 31)).opened)
+
+    crossing = watchdog.tick(state, at(11, 31))[-1]
+    state, _ = run(state, crossing)
+    evaluation = exception_rules.evaluate(state, crossing, at(11, 31))
+
+    assert evaluation.opened == ()                       # one problem, one card
+    assert [one.exception_type for one in evaluation.amended] == [EventType.GATE_CLOSED]
+    amended = evaluation.amended[0]
+    assert amended.id == state.exceptions[0].id
+    assert amended.cost_exposure_paise == 150            # 1 billable minute at 150
+    assert amended.audit[-1]["action"] == "DETENTION_CROSSED"
+    assert amended.audit[-1]["billable_minutes"] == 1
+    assert state.exceptions[0].cost_exposure_paise == 0  # the original is untouched
+
+
+def test_a_crossing_with_nothing_open_at_the_stop_opens_its_own(state):
+    state = at_stop_two(state)
+    crossing = watchdog.tick(state, at(11, 31))[-1]
+    state, _ = run(state, crossing)
+
+    opened = exception_rules.evaluate(state, crossing, at(11, 31)).opened
+    assert [one.exception_type for one in opened] == [EventType.DETENTION_CROSSED]
+    assert opened[0].opened_by == "system"
+
+
+def test_a_crossing_closes_when_service_starts_and_does_not_fire_again(state):
+    state = at_stop_two(state)
+    crossing = watchdog.tick(state, at(11, 31))[-1]
+    state, _ = run(state, crossing)
+    state = state.with_exceptions(exception_rules.evaluate(state, crossing, at(11, 31)).opened)
+
+    started = event(EventType.SERVICE_STARTED, at(11, 32), stop_id="stop-2")
+    state, _ = run(state, started)
+    closed = resolution.close_matching(state, started, at(11, 32))
+
+    assert [one.exception_type for one in closed] == [EventType.DETENTION_CROSSED]
+    assert state.stop("stop-2").status is StopStatus.IN_SERVICE
+    # Closing the exception does not restart the wait, so the rule stays latched:
+    # he is still standing there and still over the free time.
+    assert fired(watchdog.tick(state, at(11, 40)), EventType.DETENTION_CROSSED) == []
+
+
+def test_a_crossing_also_closes_on_departure(state):
+    state = at_stop_two(state)
+    crossing = watchdog.tick(state, at(11, 31))[-1]
+    state, _ = run(state, crossing)
+    state = state.with_exceptions(exception_rules.evaluate(state, crossing, at(11, 31)).opened)
+
+    state, _ = run(
+        state,
+        event(EventType.STOP_COMPLETED, at(11, 35), stop_id="stop-2"),
+        event(EventType.DEPARTED_STOP, at(11, 36), stop_id="stop-2"),
+    )
+    left = event(EventType.DEPARTED_STOP, at(11, 36), stop_id="stop-2")
+    assert len(resolution.close_matching(state, left, at(11, 36))) == 1
+    assert resolution.expire_open(
+        state.with_exceptions(resolution.close_matching(state, left, at(11, 36))),
+        at(18, 0)) == []
 
 
 def test_progress_events_open_nothing(state):
     state = arrive(state, "stop-1", at(9, 0))
     assert exception_rules.evaluate(
-        state, event(EventType.SERVICE_STARTED, at(9, 5), stop_id="stop-1"), at(9, 5)) == []
+        state, event(EventType.SERVICE_STARTED, at(9, 5), stop_id="stop-1"), at(9, 5)
+    ).changed == ()
 
 
 def test_service_closes_a_gate_closure_but_leaves_approval_pending(state):
     state = arrive(state, "stop-1", at(9, 0))
     gate = event(EventType.GATE_CLOSED, at(9, 40), stop_id="stop-1")
     state, _ = run(state, gate)
-    state = state.with_exceptions(exception_rules.evaluate(state, gate, at(9, 40)))
+    state = state.with_exceptions(exception_rules.evaluate(state, gate, at(9, 40)).opened)
 
     started = event(EventType.SERVICE_STARTED, at(10, 4), stop_id="stop-1")
     state, _ = run(state, started)
@@ -337,7 +417,7 @@ def test_a_gate_closure_at_another_stop_is_not_closed(state):
     state = arrive(state, "stop-1", at(9, 0))
     gate = event(EventType.GATE_CLOSED, at(9, 40), stop_id="stop-1")
     state = state.with_event(gate).with_exceptions(
-        exception_rules.evaluate(state, gate, at(9, 40)))
+        exception_rules.evaluate(state, gate, at(9, 40)).opened)
     elsewhere = event(EventType.STOP_COMPLETED, at(10, 4), stop_id="stop-3")
     assert resolution.close_matching(state, elsewhere, at(10, 4)) == []
 
@@ -346,7 +426,7 @@ def test_silence_is_closed_by_anything_the_driver_says(state):
     state, _ = run(state, event(EventType.DEPARTED_DEPOT, at(8, 5)))
     quiet = watchdog.tick(state, at(9, 40))[-1]
     state = state.with_event(quiet).with_exceptions(
-        exception_rules.evaluate(state, quiet, at(9, 40)))
+        exception_rules.evaluate(state, quiet, at(9, 40)).opened)
     assert state.exceptions[0].opened_by == "system"
 
     chat = event(EventType.ACKNOWLEDGEMENT, at(9, 50))
@@ -357,7 +437,7 @@ def test_a_reattempt_reaches_state_as_an_event_and_closes_the_absence(state):
     state = arrive(state, "stop-1", at(9, 0))
     absent = event(EventType.CONSIGNEE_ABSENT, at(9, 20), stop_id="stop-1")
     state, _ = run(state, absent)
-    state = state.with_exceptions(exception_rules.evaluate(state, absent, at(9, 20)))
+    state = state.with_exceptions(exception_rules.evaluate(state, absent, at(9, 20)).opened)
 
     # No refusal is invented first: nobody refused anything, nobody was there.
     reattempt = event(EventType.REATTEMPT_SCHEDULED, at(9, 50),
@@ -369,14 +449,14 @@ def test_a_reattempt_reaches_state_as_an_event_and_closes_the_absence(state):
     assert reattempt in state.events            # it is in his record of the day
     closed = resolution.close_matching(state, reattempt, at(9, 50))
     assert [one.exception_type for one in closed] == [EventType.CONSIGNEE_ABSENT]
-    assert exception_rules.evaluate(state, reattempt, at(9, 50)) == []
+    assert exception_rules.evaluate(state, reattempt, at(9, 50)).changed == ()
 
 
 def test_whatever_is_still_open_expires_at_trip_close(state):
     state = arrive(state, "stop-1", at(9, 0))
     gate = event(EventType.GATE_CLOSED, at(9, 40), stop_id="stop-1")
     state = state.with_event(gate).with_exceptions(
-        exception_rules.evaluate(state, gate, at(9, 40)))
+        exception_rules.evaluate(state, gate, at(9, 40)).opened)
 
     assert resolution.expire_open(state, at(17, 0)) == []
     expired = resolution.expire_open(state, at(18, 0))
