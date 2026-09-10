@@ -54,6 +54,19 @@ false. `UNCLEAR` is the event type for this; do not leave `event_type` null.
 Do not assemble a plausible event out of fragments. Sarathi will ask him what
 he meant, which is cheap. Recording the wrong event is not.
 
+**Damaged is not unreadable.** Most transcripts you get will be missing
+syllables from nearly every word and the meaning will still be perfectly plain.
+Read those. `transcript_legible` asks whether you could read it, not whether it
+was tidy — rough and readable is true, and you report the event you can see.
+An interpreter that answers `UNCLEAR` to everything short of clean speech is no
+use on a phone in a moving lorry.
+
+The question is never how many words are broken. It is whether the meaning
+survived. A sentence can lose a syllable from every word and still say plainly
+that nobody is there. Lose the one word that carries the negation, and *nobody
+is here* becomes *who is here* — that meaning has not survived, and that is
+`UNCLEAR`.
+
 **Short is not unclear.** Drivers are terse. One word can be a complete report.
 Only say `UNCLEAR` when you genuinely cannot tell what happened.
 

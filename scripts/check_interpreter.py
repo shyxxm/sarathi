@@ -74,15 +74,24 @@ def grade(case: dict, output) -> bool | None:
     and counting it as one understates the prompt by however many calls the
     provider refused. Errors are their own bucket and never enter the score.
 
-    A garbled row is graded on the two things that matter: it refused to invent
-    an event, and it said so. Intents are not graded there — if the words cannot
-    be read, whether he was reporting or asking cannot be either.
+    A destroyed row is graded on the two things that matter: it refused to
+    invent an event, and it said so. Intents are not graded there — if the words
+    cannot be read, whether he was reporting or asking cannot be either.
+
+    A recoverable row is graded like any other message, because it is one. SPEC
+    2: degradation that preserves meaning is not illegibility, and an
+    interpreter that answers UNCLEAR to every damaged transcript is no use on
+    the audio this system will actually get.
     """
     if output is None:
         return None
     event = output.event_type.value if output.event_type else None
-    if case["garbled"]:
+    if case["degradation"] == "destroyed":
         return event == "UNCLEAR" and output.transcript_legible is False
+
+    expected_legible = case.get("expected_transcript_legible")
+    if expected_legible is not None and output.transcript_legible is not expected_legible:
+        return False
     return (sorted(intent.value for intent in output.intents)
             == sorted(case["expected_intents"])
             and event == case["expected_event_type"])
@@ -130,13 +139,16 @@ def show(title: str, rows: list[dict]) -> None:
     print(f"\n{title}")
     for row in rows:
         got = f"{'+'.join(row['got_intents']) or '-'} / {row['got_event'] or '-'}"
-        if row["garbled"]:
+        if row["degradation"] == "destroyed":
             got += f" / legible={row['got_legible']}"
             expected = "UNCLEAR / legible=False"
         else:
             expected = f"{'+'.join(row['expected_intents'])} / {row['expected_event_type']}"
+            if row.get("expected_transcript_legible") is not None:
+                got += f" / legible={row['got_legible']}"
+                expected += f" / legible={row['expected_transcript_legible']}"
         mark = {True: "  ", False: "X ", None: "! "}[row["ok"]]
-        print(f"{mark}{row['id']:<6}{row['text'][:52]:<54}{got:<34}{expected}")
+        print(f"{mark}{row['id']:<6}{row['text'][:48]:<50}{got:<50}{expected}")
 
 
 def main() -> int:
@@ -180,8 +192,10 @@ def main() -> int:
     if reused:
         print(f"reused {reused} cached row(s), called {called}")
 
-    for label, garbled in (("LEGIBLE", False), ("GARBLED", True)):
-        subset = [row for row in rows if row["garbled"] is garbled]
+    for band, label in (("none", "CLEAN"),
+                        ("recoverable", "DEGRADED, MEANING INTACT — read it, do not refuse it"),
+                        ("destroyed", "DEGRADED PAST RECOVERY — must refuse")):
+        subset = [row for row in rows if row["degradation"] == band]
         show(f"{label}  ·  held out", [row for row in subset if not row["in_prompt"]])
         show(f"{label}  ·  in prompt — recited, not evidence",
              [row for row in subset if row["in_prompt"]])
@@ -200,12 +214,15 @@ def main() -> int:
     failures = [row for row in rows if row["ok"] is False]
     print(f"\n{len(failures)} mismatch(es)")
     for row in failures:
-        print(f"\n  {row['id']}{'  (garbled)' if row['garbled'] else ''}  {row['text']}")
+        band = "" if row["degradation"] == "none" else f"  ({row['degradation']})"
+        print(f"\n  {row['id']}{band}  {row['text']}")
         print(f"      got      {'+'.join(row['got_intents']) or '-'} / {row['got_event'] or '-'}"
               f"   legible={row['got_legible']}   claimed={row['got_claimed']}")
-        expected = ("UNCLEAR / legible=False" if row["garbled"]
+        expected = ("UNCLEAR / legible=False" if row["degradation"] == "destroyed"
                     else f"{'+'.join(row['expected_intents'])} / {row['expected_event_type']}")
         print(f"      expected {expected}")
+        if row.get("note"):
+            print(f"      why      {row['note']}")
     return 0
 
 

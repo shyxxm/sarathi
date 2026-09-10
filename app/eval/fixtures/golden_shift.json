@@ -3,7 +3,6 @@
     "id": "m01",
     "occurred_at": "08:05",
     "text": "sir eranganu",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -11,13 +10,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m02",
     "occurred_at": "08:58",
     "text": "ethi",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -25,13 +24,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "none"
   },
   {
     "id": "m03",
     "occurred_at": "09:30",
     "text": "ok sir load irakki kazhinju",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -39,13 +38,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m04",
     "occurred_at": "09:31",
     "text": "next point povuva",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -53,13 +52,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m05",
     "occurred_at": "10:05",
     "text": "sir rand mathe godown ethi undu",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -67,13 +66,13 @@
     "expected_exception": null,
     "expected_location_hint": "rand mathe godown",
     "expected_claimed_wait_minutes": null,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "none"
   },
   {
     "id": "m06",
     "occurred_at": "10:13",
     "text": "gate adachirikkuva security paranju wait cheyyan pinne varan njan purath nikkuva nalpath minute ayi",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -81,13 +80,13 @@
     "expected_exception": "GATE_CLOSED",
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": 40,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "none"
   },
   {
     "id": "m07",
     "occurred_at": "11:14",
     "text": "gate thurannu irakkan thudangi",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -95,13 +94,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m08",
     "occurred_at": "11:35",
     "text": "over",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -109,13 +108,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "none"
   },
   {
     "id": "m08b",
     "occurred_at": "11:36",
     "text": "delivery kazhinju sir",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -123,13 +122,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m09",
     "occurred_at": "12:00",
     "text": "sir ethiyittund",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -137,13 +136,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m10",
     "occurred_at": "12:02",
     "text": "ivide aarum illa phone edukkunilla shop poottiya pole und ippo enthu cheyyum",
-    "garbled": false,
     "expected_intents": [
       "REPORT",
       "QUESTION"
@@ -152,13 +151,13 @@
     "expected_exception": "CONSIGNEE_ABSENT",
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "none"
   },
   {
     "id": "m11",
     "occurred_at": "14:30",
     "text": "sir ethi block ayirunnu",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -166,13 +165,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "none"
   },
   {
     "id": "m12",
     "occurred_at": "14:55",
     "text": "kazhinju sir",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -180,13 +179,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m13",
     "occurred_at": "16:00",
     "text": "last point ethi",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -194,13 +193,13 @@
     "expected_exception": null,
     "expected_location_hint": "last point",
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m14",
     "occurred_at": "16:45",
     "text": "ellam kodthu sir signature vangi",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -208,13 +207,13 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m15",
     "occurred_at": "16:46",
     "text": "ok njan poyi",
-    "garbled": false,
     "expected_intents": [
       "REPORT"
     ],
@@ -222,34 +221,55 @@
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
-    "in_prompt": false
+    "in_prompt": false,
+    "degradation": "none"
   },
   {
     "id": "m06g",
     "derived_from": "m06",
     "occurred_at": "10:13",
     "text": "get adachiri chikkuriti paran vetu cheyy pinne var njan purath nikku nalu minu ayi",
-    "garbled": true,
     "expected_intents": null,
     "expected_event_type": "UNCLEAR",
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
     "expected_transcript_legible": false,
-    "in_prompt": true
+    "in_prompt": true,
+    "degradation": "destroyed",
+    "note": "Destroyed: gate->get, security->chikkuriti, wait->vetu, and nalpath (forty) -> nalu (four). The number is the damage — a confident reading here bills the wrong wait."
   },
   {
     "id": "m10g",
     "derived_from": "m10",
     "occurred_at": "12:02",
     "text": "ivide aar illa pon edukkunil chaap pootti pol und ipp enthu cheyy",
-    "garbled": true,
+    "expected_intents": [
+      "REPORT",
+      "QUESTION"
+    ],
+    "expected_event_type": "CONSIGNEE_ABSENT",
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_transcript_legible": true,
+    "in_prompt": false,
+    "degradation": "recoverable",
+    "note": "Damaged in nearly every word and still perfectly readable: 'ivide aar illa' says nobody is there, 'ipp enthu cheyy' asks what to do. Degradation that preserves meaning is not illegibility (SPEC 2). Graded like any other message. It is kept out of the prompt on purpose, so it tests the middle band rather than reciting it."
+  },
+  {
+    "id": "m10gg",
+    "derived_from": "m10",
+    "occurred_at": "12:02",
+    "text": "ivide aaru pon edukkunu chaap poo pol und ipp entho cheyth",
+    "degradation": "destroyed",
     "expected_intents": null,
     "expected_event_type": "UNCLEAR",
     "expected_exception": null,
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
     "expected_transcript_legible": false,
-    "in_prompt": false
+    "in_prompt": false,
+    "note": "The same message degraded past recovery. 'aarum illa' (nobody is here) has lost its negation and become 'aaru' (who); 'enthu cheyyum' (what shall I do) has become 'entho cheyth' (did something). A confident reading does not just miss the meaning, it inverts it: absent consignee becomes someone present who did something."
   }
 ]
