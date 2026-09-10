@@ -121,6 +121,7 @@ class EventType(str, Enum):
     DRIVER_SILENT = "DRIVER_SILENT"
     WINDOW_AT_RISK = "WINDOW_AT_RISK"
     DETENTION_CROSSED = "DETENTION_CROSSED"
+    REATTEMPT_SCHEDULED = "REATTEMPT_SCHEDULED"  # emitted by SCHEDULE_REATTEMPT
 
 class StopStatus(str, Enum):
     PENDING = "PENDING"; EN_ROUTE = "EN_ROUTE"; ARRIVED = "ARRIVED"
@@ -277,10 +278,23 @@ for display.
 ### 4.1 State machine
 
 ```
+                          +---------------------------+
+                          |                           v
 PENDING -> EN_ROUTE -> ARRIVED -> IN_SERVICE -> COMPLETED
                           |            |
                           +------------+--> FAILED -> REATTEMPT_SCHEDULED
 ```
+
+`SERVICE_STARTED` is optional. A driver who says *"delivered, leaving"* after
+*"reached"* is not making a mistake, and rejecting him teaches him the system is
+pedantic — which is how a driver-first tool loses its user in week one.
+
+`PENDING -> ARRIVED` stays illegal. That one almost always means we have the
+wrong stop, and asking which stop he means is the right answer.
+
+`REATTEMPT_SCHEDULED` reaches state as an event, emitted when the
+`SCHEDULE_REATTEMPT` action executes — not as a second way to write state. It
+therefore appears in the driver's own record of the day like everything else.
 
 Illegal transitions do not mutate state. They become `UNCLEAR` and push the
 reply toward asking the driver what he meant.
@@ -308,6 +322,9 @@ so a discrepancy surfaces immediately instead of becoming a dispute later.
 | Window risk | `projected_arrival > window_close` | `WINDOW_AT_RISK` | heads-up |
 | Detention | `observed_wait > free_minutes` | `DETENTION_CROSSED` | reassurance |
 
+`grace` is 15 minutes and the silence threshold is 90. Both live in
+`domain/constants.py`; neither is tunable per driver, and never will be.
+
 Every rule fires once per (stop, rule) unless the condition clears and recurs.
 
 **Wording is part of the spec.** These produce *"everything alright? need
@@ -319,7 +336,7 @@ fired. See CLAUDE.md rule 1.
 | Open | Resolved by |
 |---|---|
 | `GATE_CLOSED` | `SERVICE_STARTED`, `STOP_COMPLETED` |
-| `CONSIGNEE_ABSENT` | `STOP_COMPLETED`, reattempt scheduled |
+| `CONSIGNEE_ABSENT` | `STOP_COMPLETED`, `REATTEMPT_SCHEDULED` |
 | `STOP_OVERDUE` | `ARRIVED_STOP` |
 | `DRIVER_SILENT` | any driver-sourced event |
 | `WINDOW_AT_RISK` | `STOP_COMPLETED` before close |
