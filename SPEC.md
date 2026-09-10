@@ -80,6 +80,33 @@ Design consequences, all load-bearing:
 - Low transcription confidence lowers the composite score (§5) and pushes the
   reply toward hedging, not toward silent guessing.
 
+**Legibility is not binary.** Between a clean transcript and an unreadable one
+there is a wide recoverable band — syllables dropped, English words landing as
+Malayalam near-homophones — where the meaning survives anyway. The interpreter
+reads that band and reports what it says. It does not refuse it. Refusing
+everything short of clean would make Sarathi useless on the audio it will
+actually get, which is most of it.
+
+What separates the bands is whether the meaning survives, not how many words
+are damaged:
+
+| Transcript | Band |
+|---|---|
+| `ivide aarum illa phone edukkunilla ... ippo enthu cheyyum` | clean |
+| `ivide aar illa pon edukkunil ... ipp enthu cheyy` | damaged, meaning intact |
+| `ivide aaru pon edukkunu ... ipp entho cheyth` | destroyed — `illa` is gone |
+
+The middle row is missing syllables in nearly every word and still says plainly
+that nobody is there and that he wants to know what to do. The third has lost
+one word, `illa`, and with it the fact that anybody is absent. **Degradation
+that preserves meaning is not illegibility.**
+
+The middle band is handled by the composite score in §5, not by the interpreter
+refusing to answer. A damaged transcript lowers the legibility signal, which
+lowers confidence, which pushes the reply toward hedging — and a hedged reply
+still restates what was understood, so the driver still gets the chance to
+correct it. That is the mechanism. Silence is not.
+
 This is the single most important section in the file. A pipeline that assumes
 good transcripts will feel broken to a real driver in the first minute.
 
