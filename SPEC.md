@@ -384,6 +384,17 @@ wrong stop, and asking which stop he means is the right answer.
 `SCHEDULE_REATTEMPT` action executes — not as a second way to write state. It
 therefore appears in the driver's own record of the day like everything else.
 
+**`reattempt_cutoff_time` is carried, not enforced.** `CustomerTerms` holds it
+and the seed sets one per customer — 16:00, 17:00, 14:00 — but nothing in
+`domain/` reads it. No rule today refuses a `SCHEDULE_REATTEMPT` past the
+cutoff, or moves it to the next working day.
+
+Until it is enforced, that customer's SOP is the only place the cutoff is
+stated, so the driver hears it from retrieval or he does not hear it. That is
+the wrong way round — a time the system already knows should not be a time only
+a document remembers — and it is a rule for `domain/`, not a claim for the
+responder to make. **M7.**
+
 **`DEPARTED` is one event, not two.** *"Eranganu"* — I've set off — is the same
 sentence whether he is leaving the depot or leaving stop 3, and nothing in the
 words tells them apart. Only the current stop status does, and the interpreter
@@ -496,8 +507,31 @@ risk = HIGH if (
 ) else LOW
 ```
 
-`retrieval_score` is the **top SOP chunk's** similarity, and 0.0 when nothing
-came back. Precedents do not count toward it, however well they match.
+`retrieval_score` is the **top cited SOP chunk's** similarity, and 0.0 when
+nothing was cited. Precedents do not count toward it, however well they match.
+
+**"No SOP cited" means no chunk cleared the relevance floor — not that no chunk
+came back.** The distinction is the whole of rule 7. A vector store returns its
+top-k for every query, so a chunk always comes back; if that counted as a
+citation the `ESCALATE` branch below would be unreachable and Sarathi would
+answer a question about a burst tyre out of the delivery-window section.
+
+The floor is measured, not chosen. Cosine similarity has no absolute meaning
+across embedding models: the seeded corpus scores ~0.60 against questions it
+has no answer to and ~0.65-0.75 against real ones, so any hand-picked threshold
+is both arbitrary now and silently wrong the next time the model changes. So at
+index time each customer's corpus is queried with two or three deliberately
+off-topic probes, the highest score any of them reaches is stored as that
+corpus's noise level, and a chunk counts as cited only if it clears
+`baseline + CITATION_MARGIN`. Re-measured on every index, so a model change
+re-derives the floor instead of invalidating it unnoticed.
+
+The baselines are per customer and they differ — 0.608, 0.635, 0.621 on the
+seeded three under gemini-embedding-001 — which is the argument against a
+single constant in one line.
+
+The floor filters obvious noise. It is **not** where rule 7 is enforced, and
+§5.1 is why — read it before designing anything against `retrieval_score`.
 
 Rule 7 governs claims about what the driver is owed or is liable for, and the
 only thing that settles those is the customer's standing terms. A precedent is
@@ -532,6 +566,69 @@ Two hard overrides regardless of score:
 
 `ESCALATE` still speaks to the driver. It says a person is looking at it. It
 never returns silence.
+
+### 5.1 The ordering inverts, so rule 7 does not rest on similarity
+
+Measured on the seeded corpus under gemini-embedding-001, against customer-1:
+
+```
+0.640   "diesel price at the pump near Aluva"              off-topic, held out
+0.635   "nobody is answering, who does the driver call"    a real question
+```
+
+**The noise scores higher than the question.** This is not a narrow margin, it
+is inverted ordering, and no cut point survives it: any floor admitting the
+real question admits the diesel one, and any floor excluding the diesel one
+excludes a driver standing at a locked shop asking who to ring. Raising
+`CITATION_MARGIN` trades one error for the other and fixes neither. The probe
+was held out deliberately — it was not one of the three the baseline was
+measured from — so this is what the calibration does on inputs it has not seen,
+not a tuning artefact.
+
+The conclusion is about the signal, not the setting:
+
+> **Rule 7 is not enforceable from cosine similarity alone at this embedding's
+> floor.** A retrieval score cannot distinguish a chunk that answers the
+> question from a chunk that merely shares its vocabulary, and "what the driver
+> is owed" is exactly where that difference decides whether Sarathi is right.
+
+The relevance floor stays. It is doing real work — it took 15 off-topic probes
+that all counted as citations down to one, and it makes the `no SOP cited`
+branch reachable at all, which it was not before. But it is a filter on
+obvious noise, not the enforcement mechanism, and §5 must not be designed as
+though a number above the floor means the chunk supports the claim.
+
+**Where rule 7 actually gets enforced: a grounding check on the drafted
+reply.** After the responder drafts and before the router speaks, the critic
+asks a separate question of the cited chunk text — *does this passage actually
+support this claim?* — for each claim the reply makes about pay, liability or
+what the customer's terms require. Not similarity. Entailment, against the text
+that would be cited.
+
+Why this is the right shape:
+
+- **It catches the case the floor cannot.** The diesel question retrieves the
+  delivery-window chunk at 0.640, and nothing in that chunk says anything about
+  fuel prices. Similarity says 0.640; grounding says no. The second answer is
+  the correct one, and it does not depend on where the floor sits.
+- **It is cheap.** One short model call over a drafted reply and at most three
+  retrieved chunks — no history, no trip state. It runs only when the reply
+  makes a rule-7 claim, which is a minority of messages.
+- **It fails safe by construction.** Unsupported, unparseable, or the call
+  fails: no citation, therefore no claim, therefore `ESCALATE` — which already
+  speaks to the driver and says a person is looking at it.
+- **It is a second signal, not a better threshold.** Retrieval says *this text
+  is nearby*; grounding says *this text says that*. Both being wrong requires
+  two independent failures, and §2's restatement loop is still underneath both,
+  catching what neither did — the driver hears what we understood and can say
+  no.
+
+Not built yet. It is recorded here first so the responder and the critic are
+designed against it: the responder must emit claims that can be checked
+individually against a chunk rather than one fused paragraph, and the critic
+needs `cited_sop_chunks` text, not just `retrieval_score`. Retrofitting a
+grounding check onto a responder that returns unattributable prose is the
+expensive version of this. **M3.**
 
 ---
 
