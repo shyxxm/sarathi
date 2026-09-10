@@ -36,9 +36,13 @@ This is the leak the claims list cannot close by itself. A reply may state a
 rule in its prose and forget to declare it. Quote the sentence.
 
 Ordinary reassurance is not an assertion. "I am checking with the office" and
-"a person is looking at this" claim nothing about the terms. What we understood
-happened — times, stops, what he told us — is not a claim about rules either;
-ignore it.
+"a person is looking at this" claim nothing about the terms.
+
+Anything listed under **What we already knew** came from our own operational
+records, not from a customer document. Times, stops, clock readings, what he
+told us, how long we have counted. Those are restated for him to correct, and
+they are not claims about rules. Ignore them, including where the reply words
+them differently from the list.
 
 ## Output
 

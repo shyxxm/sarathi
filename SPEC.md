@@ -618,68 +618,127 @@ Two hard overrides regardless of score:
 `ESCALATE` still speaks to the driver. It says a person is looking at it. It
 never returns silence.
 
-### 5.1 The ordering inverts, so rule 7 does not rest on similarity
+### 5.1 Similarity ordering is fragile, so grounding enforces rule 7
 
-Measured on the seeded corpus under gemini-embedding-001, against customer-1:
+#### What was measured — 10 September 2026
+
+Held-out off-topic probes against the seeded corpus under
+gemini-embedding-001. Held out deliberately: not among the three the baseline
+was measured from, so this is what the calibration does on inputs it has not
+seen. Against customer-1:
 
 ```
 0.640   "diesel price at the pump near Aluva"              off-topic, held out
 0.635   "nobody is answering, who does the driver call"    a real question
 ```
 
-**The noise scores higher than the question.** This is not a narrow margin, it
-is inverted ordering, and no cut point survives it: any floor admitting the
-real question admits the diesel one, and any floor excluding the diesel one
-excludes a driver standing at a locked shop asking who to ring. Raising
-`CITATION_MARGIN` trades one error for the other and fixes neither. The probe
-was held out deliberately — it was not one of the three the baseline was
-measured from — so this is what the calibration does on inputs it has not seen,
-not a tuning artefact.
+The noise scored higher than the question. Not a narrow margin — **inverted
+ordering**, which no cut point survives: any floor admitting the real question
+admitted the diesel one, and any floor excluding the diesel one stranded a
+driver at a locked shop asking who to ring.
 
-The conclusion is about the signal, not the setting:
+#### What changed — 11 September 2026
 
-> **Rule 7 is not enforceable from cosine similarity alone at this embedding's
-> floor.** A retrieval score cannot distinguish a chunk that answers the
-> question from a chunk that merely shares its vocabulary, and "what the driver
-> is owed" is exactly where that difference decides whether Sarathi is right.
+The cause was **vocabulary drift between the driver's words and the document's
+headings.** He asks about *waiting*; the section is headed *Detention*. He is
+at a shut gate asking one question, and the answer was split across a gate
+section and a detention section that did not reference each other. Embedding
+similarity was being asked to bridge a gap that belonged in the document.
 
-The relevance floor stays. It is doing real work — it took 15 off-topic probes
-that all counted as citations down to one, and it makes the `no SOP cited`
-branch reachable at all, which it was not before. But it is a filter on
-obvious noise, not the enforcement mechanism, and §5 must not be designed as
-though a number above the floor means the chunk supports the claim.
+Two changes to the SOPs, no change to the retrieval code:
 
-**Where rule 7 actually gets enforced: a grounding check on the drafted
-reply.** After the responder drafts and before the router speaks, the critic
-asks a separate question of the cited chunk text — *does this passage actually
-support this claim?* — for each claim the reply makes about pay, liability or
-what the customer's terms require. Not similarity. Entailment, against the text
-that would be cited.
+1. A plain-language line under every section heading, in the words a driver
+   would use — under *Detention*, *"how long can I wait before it starts
+   costing, who pays for waiting, when does the clock start."* This is the
+   query side of the gap written into the document. It is what these chunks are
+   retrieved by.
+2. Customer-2's gate section now says what happens to waiting time when the
+   gate is shut, and points at the detention terms, so one question gets one
+   chunk.
 
-Why this is the right shape:
+Remeasured, same pair, same probes, same model:
 
-- **It catches the case the floor cannot.** The diesel question retrieves the
-  delivery-window chunk at 0.640, and nothing in that chunk says anything about
-  fuel prices. Similarity says 0.640; grounding says no. The second answer is
-  the correct one, and it does not depend on where the floor sits.
-- **It is cheap.** One short model call over a drafted reply and at most three
-  retrieved chunks — no history, no trip state. It runs only when the reply
-  makes a rule-7 claim, which is a minority of messages.
-- **It fails safe by construction.** Unsupported, unparseable, or the call
-  fails: no citation, therefore no claim, therefore `ESCALATE` — which already
-  speaks to the driver and says a person is looking at it.
+```
+              10 Sep    11 Sep
+noise         0.640     0.630
+question      0.635     0.649
+```
+
+The ordering held on all three customers: every real question now outranks
+every held-out probe. Baselines *fell* — 0.608 to 0.591 on customer-1, 0.621 to
+0.611 on customer-3 — because the documents became more distinguishable from
+noise, which is what those lines are for. Headroom roughly doubled: +0.026 to
++0.058, +0.037 to +0.039, +0.029 to +0.052.
+
+The seeded gate-closed case went from `ESCALATE` with a rejected claim and two
+undeclared ones, to `SPEAK_HEDGED` with three grounded claims.
+
+#### The finding that survives
+
+Fixing the documents fixed the ordering. It did not make the ordering
+trustworthy.
+
+> **Similarity ordering is fragile under vocabulary drift, so it cannot be what
+> enforces rule 7.** A wording change in a document — not in the code, not in
+> the model, not in the threshold — moved noise above a real question and back
+> again. Anything that can be inverted by an editor choosing the word
+> *Detention* over the word *waiting* is not a safety mechanism.
+
+**This conclusion does not depend on the ordering being inverted today. It
+depends on it having inverted at all.** The corpus is three short documents
+written in one sitting; a real account's SOPs are written by different people
+over years, and nothing keeps their headings in the driver's vocabulary. The
+next drift will not announce itself with a failing test.
+
+So the floor stays and keeps its job: it filters obvious noise, it makes the
+`no SOP cited` branch reachable at all, and a chunk above it is a chunk worth
+*looking* at. It is not evidence that the chunk supports the claim.
+
+#### Where rule 7 is enforced: the grounding check
+
+After the responder drafts and before the router speaks, the critic asks a
+separate question of the cited chunk text — *does this passage actually support
+this claim?* — for each claim about pay, liability, or what the customer's
+terms require. Not similarity. Entailment, against the text that would be
+cited.
+
+- **It catches what the floor cannot.** A question about diesel retrieves a
+  delivery-window chunk, and nothing in that chunk mentions fuel. Similarity
+  says 0.630; grounding says no. Grounding's answer does not move when someone
+  rewrites a heading.
+- **It is cheap.** One short call over a drafted reply and at most three
+  chunks. No history, no trip state.
+- **It fails safe.** Unsupported, unparseable, or the call did not complete: no
+  citation, therefore no claim, therefore `ESCALATE` — which still speaks, and
+  still hands the driver his facts back.
 - **It is a second signal, not a better threshold.** Retrieval says *this text
-  is nearby*; grounding says *this text says that*. Both being wrong requires
-  two independent failures, and §2's restatement loop is still underneath both,
-  catching what neither did — the driver hears what we understood and can say
-  no.
+  is nearby*; grounding says *this text says that*. Both being wrong takes two
+  independent failures, and §2's restatement loop sits under both.
 
-Not built yet. It is recorded here first so the responder and the critic are
-designed against it: the responder must emit claims that can be checked
-individually against a chunk rather than one fused paragraph, and the critic
-needs `cited_sop_chunks` text, not just `retrieval_score`. Retrofitting a
-grounding check onto a responder that returns unattributable prose is the
-expensive version of this. **M3.**
+Built at M3. The shape it needs is in §3.4: claims small enough to check one at
+a time, each carrying the chunk it rests on, and `cited_sop_ids` derived from
+them rather than listed beside them.
+
+#### The margin does not close, and that is left alone
+
+`CITATION_MARGIN` is 0.02 and no single value separates all three customers.
+Customer-1 needs **>= 0.040** to exclude its held-out diesel probe (baseline
+0.591, probe 0.630). Customer-2 needs **< 0.039** to admit its worst real
+question (baseline 0.635, question 0.674). The window is empty by a
+thousandth.
+
+The reason is customer-2's baseline. Its three probes score 0.606, 0.598 and
+**0.635**, and the high one is *"quarterly amortisation of goodwill in the
+consolidated accounts"* — corporate-accounting vocabulary landing close to a
+warehousing document. One probe is holding that customer's floor about 0.03
+above where its own noise sits.
+
+**The probe is not being replaced.** A baseline that is too high fails safe: it
+escalates real questions, which §5 already treats as the acceptable direction.
+Swapping out a probe because it scored high is the same error as adding a probe
+because it scored low — fitting the calibration to its own test, which is what
+holding probes out was for. The empty window is recorded as a known state, not
+a defect to tune away, and grounding is what stands behind it either way.
 
 ---
 

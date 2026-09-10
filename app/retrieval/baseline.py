@@ -41,15 +41,22 @@ NOISE_PROBES: tuple[str, ...] = (
 
 # How far a real query must clear measured noise. Small because the gap it
 # lives in is small: across 18 seeded questions the tightest margin over
-# baseline was 0.026, so this leaves roughly 0.006 of headroom in the worst
-# case. It is a judgement, and the one number here that is not measured —
-# but it is a judgement about a *gap*, which survives a model change, and
-# scripts/measure_margin.py reprints the distribution it was set from.
+# baseline is 0.039, and was 0.026 before the SOPs were rewritten in the
+# driver's vocabulary. It is a judgement, and the one number here that is not
+# measured — but it is a judgement about a *gap*, which survives a model
+# change, and scripts/measure_margin.py reprints the distribution it was set
+# from.
 #
-# No value of this enforces rule 7. Held-out noise scores 0.640 against
-# customer-1 while a real question scores 0.635 — the ordering inverts, so
-# every cut point is wrong in one direction or the other. This filters the
-# obvious cases; SPEC 5.1 has what actually enforces rule 7.
+# No value of this enforces rule 7, and no single value even separates the
+# three seeded customers: customer-1 needs >= 0.040 to exclude a held-out
+# probe, customer-2 needs < 0.039 to admit its worst real question. The window
+# is empty by a thousandth and is being left that way — a floor that is too
+# high escalates, which is the safe direction, and moving a probe because it
+# scored high is fitting the calibration to its own test.
+#
+# The ordering these numbers describe has already inverted once, under nothing
+# more than a wording change in a document. That is why this filters the
+# obvious cases and SPEC 5.1's grounding check does the enforcing.
 CITATION_MARGIN = 0.02
 
 

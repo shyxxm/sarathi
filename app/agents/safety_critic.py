@@ -182,7 +182,13 @@ def ground(
 
 
 def _render(draft: ResponderOutput, by_id: dict[str, RetrievedChunk]) -> str:
-    blocks = ["## The reply as drafted", "", draft.text, "", "## Claims to check", ""]
+    blocks = ["## The reply as drafted", "", draft.text, ""]
+    # The checker is asked to ignore what came from our own records, so it has
+    # to be told what those are. Without this it reads "we have you arrived at
+    # 10:12" as an undeclared rule and escalates a reply that was correct.
+    blocks += ["## What we already knew (from our records, not from any SOP)", ""]
+    blocks += [f"- {fact}" for fact in draft.restated_facts]
+    blocks += ["", "## Claims to check", ""]
     if not draft.claims:
         blocks += ["(the reply declares no claims — check the prose anyway)", ""]
     for index, claim in enumerate(draft.claims, start=1):
