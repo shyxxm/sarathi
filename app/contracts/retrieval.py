@@ -15,10 +15,20 @@ once ids are in a database and thresholds are tuned to a scale.
 from pathlib import PurePath
 import re
 from typing import Literal
+import warnings
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 Kind = Literal["SOP", "PRECEDENT"]
+
+
+class UnorderedChunks(UserWarning):
+    """A retriever returned chunks that were not best-first.
+
+    The result is sorted anyway, so nothing downstream breaks — but a retriever
+    whose ordering is wrong is usually a retriever whose scoring is wrong, and
+    that is worth seeing rather than absorbing silently.
+    """
 
 
 def chunk_id(customer_id: str, source_document: str, position: int, *, kind: Kind = "SOP") -> str:
@@ -89,7 +99,26 @@ class RetrievalResult(BaseModel):
 
     @field_validator("sop_chunks", "precedents", mode="after")
     @classmethod
-    def _best_first(cls, chunks: tuple[RetrievedChunk, ...]) -> tuple[RetrievedChunk, ...]:
+    def _best_first(
+        cls, chunks: tuple[RetrievedChunk, ...], info: ValidationInfo,
+    ) -> tuple[RetrievedChunk, ...]:
+        """Check the retriever ordered them, say so if it did not, sort anyway.
+
+        Downstream code reads `[0]` as the best match and must stay right no
+        matter what it was handed. But silently correcting a retriever hides the
+        bug: ordering that comes back ascending usually means a distance was
+        passed where a similarity was expected, which makes every score in the
+        result wrong, not just their order.
+        """
+        scores = [chunk.score for chunk in chunks]
+        if any(earlier < later for earlier, later in zip(scores, scores[1:])):
+            warnings.warn(
+                f"{info.field_name} arrived out of order ({scores}); sorted "
+                "best-first. Check the retriever is returning cosine similarity "
+                "and not a distance.",
+                UnorderedChunks,
+                stacklevel=2,
+            )
         return tuple(sorted(chunks, key=lambda chunk: chunk.score, reverse=True))
 
     @property
