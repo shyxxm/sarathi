@@ -121,7 +121,12 @@ RECORDED = ("ok", "error", "got_intents", "got_event", "got_legible",
 
 def tally(rows: list[dict]) -> str:
     """Scored, errored and total, kept apart. A run where the provider refused
-    ten calls has no business printing 1/11 as if it were a score."""
+    ten calls has no business printing 1/11 as if it were a score.
+
+    Rows marked `expected_failure` are removed before this is called. They are
+    documented boundaries (SPEC 2.1), not defects, and counting them as either
+    correct or wrong misrepresents the run.
+    """
     scored = [row for row in rows if row["ok"] is not None]
     errored = len(rows) - len(scored)
     correct = sum(1 for row in scored if row["ok"])
@@ -197,6 +202,9 @@ def main() -> int:
     if reused:
         print(f"reused {reused} cached row(s), called {called}")
 
+    boundaries = [row for row in rows if row.get("expected_failure")]
+    rows = [row for row in rows if not row.get("expected_failure")]
+
     for band, label in (("none", "CLEAN"),
                         ("recoverable", "DEGRADED, MEANING INTACT — read it, do not refuse it"),
                         ("destroyed", "DEGRADED PAST RECOVERY — must refuse")):
@@ -204,6 +212,21 @@ def main() -> int:
         show(f"{label}  ·  held out", [row for row in subset if not row["in_prompt"]])
         show(f"{label}  ·  in prompt — recited, not evidence",
              [row for row in subset if row["in_prompt"]])
+
+    if boundaries:
+        print("\n" + "-" * 78)
+        print("DOCUMENTED BOUNDARIES — SPEC 2.1, not counted in the score")
+        for row in boundaries:
+            got = f"{'+'.join(row['got_intents']) or '-'} / {row['got_event'] or '-'}"
+            if row.get("expected_transcript_legible") is not None:
+                got += f" / legible={row['got_legible']}"
+            print(f"\n  {row['id']}  {row['text']}")
+            print(f"      got  {got}")
+            print(f"      why  {row['note']}")
+            if row["ok"]:
+                print("      NOTE the boundary moved: this row now passes. That is a"
+                      " finding. Do not quietly promote it — work out what changed.")
+        print("-" * 78)
 
     print()
     for label, subset in (("held out", [r for r in rows if not r["in_prompt"]]),

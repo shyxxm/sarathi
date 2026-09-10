@@ -95,7 +95,9 @@
     "expected_location_hint": null,
     "expected_claimed_wait_minutes": null,
     "in_prompt": false,
-    "degradation": "none"
+    "degradation": "none",
+    "expected_failure": true,
+    "note": "SPEC 2.1. Clean transcript, nothing damaged: 'gate thurannu' is the gate OPENED and 'irakkan thudangi' is unloading started. Read as GATE_CLOSED, the opposite, because 'gate' is the salient word and a gate in a driver's message is usually a shut one. The model completes that frame over the words. SERVICE_STARTED is correct and does not get softened — this row is the evidence that frame-completion needs no damage to fire."
   },
   {
     "id": "m08",
@@ -270,6 +272,7 @@
     "expected_claimed_wait_minutes": null,
     "expected_transcript_legible": false,
     "in_prompt": false,
-    "note": "The same message degraded past recovery. 'aarum illa' (nobody is here) has lost its negation and become 'aaru' (who); 'enthu cheyyum' (what shall I do) has become 'entho cheyth' (did something). A confident reading does not just miss the meaning, it inverts it: absent consignee becomes someone present who did something."
+    "note": "SPEC 2.1. 'aarum illa' (nobody is here) has lost its negation to become 'aaru'; 'enthu cheyyum' (what shall I do) has become 'entho cheyth'. Read as a confident CONSIGNEE_ABSENT on both a local 7B and Haiku, with the rule written into the prompt five different ways: the surrounding frame survives the corruption, so the model completes it and never misses the one morpheme carrying the claim. UNCLEAR / legible=False is correct and does not get softened.",
+    "expected_failure": true
   }
 ]
