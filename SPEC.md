@@ -673,6 +673,117 @@ noise, which is what those lines are for. Headroom roughly doubled: +0.026 to
 The seeded gate-closed case went from `ESCALATE` with a rejected claim and two
 undeclared ones, to `SPEAK_HEDGED` with three grounded claims.
 
+#### What changed again — 11 September 2026, once the query builder was read
+
+Everything above was measured against a query the pipeline never built.
+
+`build_query` took a `stop_context` mapping and embedded it whole. The
+calibration passed it `{"situation": probe}` and nothing else. Production
+passed the entire resolved stop — `stop_id`, `customer_id`, `seq`,
+`service_minutes`, the stop status, and five ISO-8601 timestamps — and then the
+driver's words. **So the floor was measured on one query shape and applied to
+another**, which makes every number in the two sections above a measurement of
+something that was not running.
+
+What production actually scored, against the floor production actually used:
+
+```
+                                              query as built   floor    result
+customer-2  "am I going to get paid for this waiting"   0.635   0.655   no citation
+customer-2  "how much free waiting time do I have here" 0.630   0.655   no citation
+```
+
+Calibrate both sides on that same shape and it is worse, not better — the
+pollution is common to the probe and the question, so it lifts the floor with
+the signal:
+
+```
+                  baseline   headroom   real questions under floor
+customer-1           0.600     +0.030   0 of 6
+customer-2           0.644     +0.003   4 of 6
+customer-3           0.615     -0.001   3 of 6
+```
+
+Customer-3's worst real question scored **below that customer's measured
+noise**. Not near it. Below it.
+
+**The fix is a deletion.** The query is the driver's words — his transcript, and
+the interpreter's plain-English rendering of his question where he asked one —
+and nothing else. `customer_id` still selects the corpus in SQL and is no longer
+embedded: an identifier is not a thing a driver said.
+
+```
+              11 Sep (a)   11 Sep (b)
+              JSON + stop  words only
+customer-1       0.600        0.574     baseline
+customer-2       0.644        0.563
+customer-3       0.615        0.595
+headroom         +0.003       +0.191    customer-2, worst question over noise
+```
+
+Every real question clears the floor on all three customers. No held-out probe
+does, on any of them.
+
+The reason it was this expensive is the part worth keeping, because it
+generalises past this bug:
+
+> **Anything added to every query is in the noise probe too.** Common text
+> raises the measured baseline exactly as fast as it raises a real question,
+> while pulling every query toward the same point and compressing the distance
+> between them. A floor is `baseline + margin`, so boilerplate spends headroom
+> and buys no discrimination.
+
+Measured, that is why nothing else was kept. Adding the event type back — one
+short English phrase, the most defensible thing on the list — costs about 0.04
+of floor and drops a real romanised-Malayalam gate report under customer-3's:
+0.638 against a floor of 0.655. A plain-language stop descriptor costs more.
+Neither is in the query.
+
+#### Two things this dissolved, neither of them by being tuned
+
+**The goodwill probe was never the problem.** Section 5.1 recorded customer-2's
+floor as held about 0.03 too high by one probe — *"quarterly amortisation of
+goodwill in the consolidated accounts"* at 0.635, corporate-accounting
+vocabulary landing close to a warehousing document — and left it as a known
+limitation rather than swap it out. It is now the **lowest** of that customer's
+three probes, at 0.540, and the lowest on the other two customers as well:
+
+```
+                          10-11 Sep   now
+the front tyre has burst     0.606    0.544
+where can I get lunch        0.598    0.563   <- holds customer-2's floor now
+quarterly amortisation       0.635    0.540
+```
+
+The JSON envelope was what made it score. Wrapping every probe in
+`{"customer_id": ..., "event_type": ..., "stop_context": {"planned_arrival":
+"2026-09-10T10:30:00+05:30", ...}}` lends an accounting probe the exact
+register it needs to resemble a business document. The probe set was not
+touched to achieve this and must not be touched now — the discipline of not
+fitting the calibration to its own test is what left the anomaly visible long
+enough to be explained instead of hidden.
+
+**The margin window closes.** It was empty by a thousandth: customer-1 needed
+`>= 0.040` to exclude its held-out diesel probe, customer-2 needed `< 0.039` to
+admit its worst real question. Remeasured on the corrected query:
+
+```
+customer-1   margin must be > +0.014  and < +0.174
+customer-2   margin must be > +0.015  and < +0.191
+customer-3   margin must be > -0.010  and < +0.148
+
+window       (+0.015, +0.148)        CITATION_MARGIN = 0.02, inside it
+```
+
+One value now separates all three customers, which no value could before. That
+is a repaired input, not a better threshold, and it changes nothing about where
+rule 7 is enforced.
+
+Worth recording against the next change: 0.02 sits 0.005 above the bottom of
+that window and 0.128 below the top. The bottom is the edge where noise gets
+cited and the top is the edge where real questions escalate, and SPEC 5 prefers
+the second. The margin is nearer the wrong edge than it looks.
+
 #### The finding that survives
 
 Fixing the documents fixed the ordering. It did not make the ordering
@@ -719,26 +830,34 @@ Built at M3. The shape it needs is in §3.4: claims small enough to check one at
 a time, each carrying the chunk it rests on, and `cited_sop_ids` derived from
 them rather than listed beside them.
 
-#### The margin does not close, and that is left alone
+#### The margin, and why it was left alone long enough to be fixed properly
 
-`CITATION_MARGIN` is 0.02 and no single value separates all three customers.
-Customer-1 needs **>= 0.040** to exclude its held-out diesel probe (baseline
-0.591, probe 0.630). Customer-2 needs **< 0.039** to admit its worst real
-question (baseline 0.635, question 0.674). The window is empty by a
-thousandth.
+Until 11 September `CITATION_MARGIN` could not be made to work. No single value
+separated the three customers: customer-1 needed `>= 0.040` to exclude its
+held-out diesel probe, customer-2 needed `< 0.039` to admit its worst real
+question, and the window was empty by a thousandth. The blame went to
+customer-2's baseline, held about 0.03 high by the goodwill probe, and the
+entry closed by refusing to replace that probe — a baseline that is too high
+fails safe, and swapping out a probe because it scored high is fitting the
+calibration to its own test.
 
-The reason is customer-2's baseline. Its three probes score 0.606, 0.598 and
-**0.635**, and the high one is *"quarterly amortisation of goodwill in the
-consolidated accounts"* — corporate-accounting vocabulary landing close to a
-warehousing document. One probe is holding that customer's floor about 0.03
-above where its own noise sits.
+That refusal was the right call for the wrong reason, and it is the reason this
+was fixable. **Neither the probe nor the margin was the defect.** The query
+builder was putting ISO timestamps and record ids into the vector, the probes
+were getting the same envelope as the questions, and the envelope was what the
+goodwill probe was scoring against. Tuning either number would have buried that
+under a threshold that appeared to work, and the next model change would have
+unburied it with no way to tell what had moved.
 
-**The probe is not being replaced.** A baseline that is too high fails safe: it
-escalates real questions, which §5 already treats as the acceptable direction.
-Swapping out a probe because it scored high is the same error as adding a probe
-because it scored low — fitting the calibration to its own test, which is what
-holding probes out was for. The empty window is recorded as a known state, not
-a defect to tune away, and grounding is what stands behind it either way.
+Both numbers now stand on their own, and neither was touched to make it happen.
+The figures are in *Two things this dissolved*, above.
+
+The rule that produced this outcome is worth keeping in exactly the form it was
+first written: **do not fit the calibration to its own test.** Applied twice —
+holding probes out, then declining to swap one when it scored badly — it turned
+a tuning problem into a defect report. A probe that scores strangely is
+evidence about the system, and a system that is being tuned cannot produce
+evidence about itself.
 
 ---
 
@@ -750,8 +869,14 @@ a defect to tune away, and grounding is what stands behind it either way.
   when a human has marked the resolution approved. An unreviewed decision must
   never become the justification for the next one.
 
-Retrieval query is built from `intent + event_type + customer_id + stop
-context`. Top-3 each.
+**The retrieval query is the driver's words and nothing else** — his
+transcript, plus the interpreter's plain-English rendering of his question
+where he asked one. No ids, no timestamps, no stop fields, no event type, no
+intent. `customer_id` selects the corpus in SQL and is not embedded.
+
+That is narrower than it reads, and deliberately so: anything added to every
+query is also in every noise probe, so it raises the measured floor as fast as
+it raises a real question. §5.1 has what the previous version cost. Top-3 each.
 
 ---
 

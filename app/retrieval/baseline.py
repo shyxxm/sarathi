@@ -7,11 +7,14 @@ its top-k whatever the query, so *something* always comes back and the branch
 is dead code.
 
 An absolute threshold does not fix it. Cosine similarity has no fixed meaning
-across embedding models, and the seeded corpus sits at ~0.60 against questions
-it has no answer to — under gemini-embedding-001, a burst tyre retrieves the
-Periyar delivery window at 0.61. Pick 0.5 and everything is a citation; pick
-0.65 and it has to be re-picked the next time the model changes, by hand, with
-nothing to tell you it went stale.
+across embedding models, and the seeded corpus scores well above zero against
+questions it has no answer to — under gemini-embedding-001, a burst tyre
+retrieves the Periyar delivery window at 0.553. Pick 0.5 and that is a
+citation. Pick a number above it and you have hand-fitted this corpus under
+this model: it has to be re-picked whenever either changes, by hand, with
+nothing to tell you it went stale. The whole seeded noise band has already
+moved once — from ~0.60 to ~0.55 — under a change to the query builder, with
+the corpus and the model untouched.
 
 So the floor is measured rather than chosen. At index time each customer's
 corpus is queried with probes that are deliberately about nothing it contains,
@@ -39,24 +42,25 @@ NOISE_PROBES: tuple[str, ...] = (
     "quarterly amortisation of goodwill in the consolidated accounts",
 )
 
-# How far a real query must clear measured noise. Small because the gap it
-# lives in is small: across 18 seeded questions the tightest margin over
-# baseline is 0.039, and was 0.026 before the SOPs were rewritten in the
-# driver's vocabulary. It is a judgement, and the one number here that is not
-# measured — but it is a judgement about a *gap*, which survives a model
-# change, and scripts/measure_margin.py reprints the distribution it was set
-# from.
+# How far a real query must clear measured noise. It is a judgement, and the
+# one number here that is not measured — but it is a judgement about a *gap*,
+# which survives a model change, and scripts/measure_margin.py reprints the
+# distribution it was set from.
 #
-# No value of this enforces rule 7, and no single value even separates the
-# three seeded customers: customer-1 needs >= 0.040 to exclude a held-out
-# probe, customer-2 needs < 0.039 to admit its worst real question. The window
-# is empty by a thousandth and is being left that way — a floor that is too
-# high escalates, which is the safe direction, and moving a probe because it
-# scored high is fitting the calibration to its own test.
+# One value separates all three seeded customers, which was not true until the
+# query builder stopped embedding record ids and ISO timestamps beside the
+# driver's words. The window across the three is (+0.015, +0.148) and 0.02 sits
+# inside it: every held-out probe excluded, every real question admitted.
 #
-# The ordering these numbers describe has already inverted once, under nothing
-# more than a wording change in a document. That is why this filters the
-# obvious cases and SPEC 5.1's grounding check does the enforcing.
+# Note which edge it is near. The bottom of that window is where noise starts
+# getting cited and the top is where real questions start escalating; SPEC 5
+# prefers the second, and 0.02 is 0.005 from the first and 0.128 from the
+# second. Raising it is the safe direction if these numbers move.
+#
+# No value of this enforces rule 7. The ordering these numbers describe has
+# already inverted once, under nothing more than a wording change in a
+# document. That is why this filters the obvious cases and SPEC 5.1's
+# grounding check does the enforcing.
 CITATION_MARGIN = 0.02
 
 

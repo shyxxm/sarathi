@@ -1,11 +1,9 @@
-import json
 import math
 from types import SimpleNamespace
 import warnings
 
 import pytest
 
-from app.contracts.enums import EventType, Intent
 from app.contracts.retrieval import RetrievedChunk, RetrievalResult, UnorderedChunks, chunk_id
 from app.retrieval.chunks import chunk_markdown
 from app.retrieval.embed import LiteLLMEmbedder, validate_vectors
@@ -54,21 +52,25 @@ def test_empty_sop_signal_ignores_precedents():
     assert not RetrievalResult()
 
 
-def test_query_has_all_context_and_deterministic_intents():
-    kwargs = dict(event_type=EventType.GATE_CLOSED, customer_id="customer-2",
-                  stop_context={"stop_id": "stop-2", "seq": 2, "question": "ഇനി എന്ത്?"})
-    query = build_query(intents={Intent.QUESTION, Intent.REPORT}, **kwargs)
-    assert query == build_query(intents=[Intent.REPORT, Intent.QUESTION, Intent.REPORT], **kwargs)
-    assert json.loads(query) == {
-        "intents": ["QUESTION", "REPORT"], "event_type": "GATE_CLOSED",
-        "customer_id": "customer-2", "stop_context": kwargs["stop_context"],
-    }
-    with pytest.raises(ValueError, match="different customer"):
-        build_query(intents=[Intent.QUESTION], **(kwargs | {
-            "stop_context": {"customer_id": "customer-1"},
-        }))
+def test_the_query_is_the_drivers_words_and_nothing_else():
+    """SPEC 5.1, second revision. Ids and timestamps carry no meaning about
+    what he is asking, and boilerplate is in the noise probe too — it raises
+    the measured baseline as fast as it raises a real question."""
+    query = build_query(customer_id="customer-2",
+                        situation="gate adachirikkuva", question="ഇനി എന്ത്?")
+    assert query == "gate adachirikkuva\nഇനി എന്ത്?"
+    assert build_query(customer_id="customer-2", situation="gate adachirikkuva") \
+        == "gate adachirikkuva"
+    # Nothing constant, so two different messages never share a single token
+    # of our own making.
+    assert "customer-2" not in query
+    for noise in ("stop-2", "2026-09-10", "GATE_CLOSED", "QUESTION", "seq"):
+        assert noise not in query
+
     with pytest.raises(ValueError, match="customer_id"):
-        build_query(intents=[Intent.QUESTION], **(kwargs | {"customer_id": ""}))
+        build_query(customer_id="  ", situation="gate adachirikkuva")
+    with pytest.raises(ValueError, match="driver's words"):
+        build_query(customer_id="customer-2", situation="   ", question=None)
 
 
 def test_markdown_chunks_are_bounded_deterministic_and_preserve_words():

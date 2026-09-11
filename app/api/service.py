@@ -222,11 +222,13 @@ class ShiftService:
             if not database_url:
                 raise MessageUnavailable("The customer's rules could not be loaded")
             self._retriever = Retriever(create_engine(database_url), LiteLLMEmbedder.from_env())
+        # His words only. The resolved stop is not handed over: it is how code
+        # found the corpus, not anything he said, and embedding it cost more
+        # than the whole citation margin (SPEC 5.1).
         return self._retriever.retrieve(
-            intents=understood.intents, event_type=event.event_type,
             customer_id=stop.customer_id,
-            stop_context={**stop.model_dump(mode="json"), "situation": event.raw_transcript or
-                          EVENT_WORDS[event.event_type], "question": understood.question_text},
+            situation=event.raw_transcript or EVENT_WORDS[event.event_type],
+            question=understood.question_text,
         )
 
     def interpret(self, text):

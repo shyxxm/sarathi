@@ -18,7 +18,6 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
-from app.contracts.enums import EventType, Intent
 from app.retrieval import CITATION_MARGIN, LiteLLMEmbedder, NOISE_PROBES, Retriever
 
 HELD_OUT = (
@@ -46,9 +45,7 @@ def main():
         def top(customer_id, situation):
             """Raw top similarity, before the floor — that is what is being calibrated."""
             return retriever.retrieve(
-                intents=[Intent.QUESTION], event_type=EventType.ARRIVED_STOP,
-                customer_id=customer_id,
-                stop_context={"situation": situation, "customer_id": customer_id},
+                customer_id=customer_id, situation=situation,
             ).sop_chunks[0].score
 
         print(f"margin = {CITATION_MARGIN}\n")

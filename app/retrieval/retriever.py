@@ -1,12 +1,7 @@
-from collections.abc import Iterable, Mapping
-from datetime import date, datetime, time
-from enum import Enum
-import json
-from typing import Any
+from datetime import datetime
 
 from sqlalchemy import Engine
 
-from app.contracts.enums import EventType, Intent
 from app.contracts.retrieval import RetrievalResult
 from app.retrieval.baseline import (
     CITATION_MARGIN, MissingBaseline, NOISE_PROBES, load_baseline, save_baseline,
@@ -16,31 +11,39 @@ from app.retrieval.precedent_store import PrecedentStore
 from app.retrieval.sop_store import SOPStore
 
 
-def _context_value(value):
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, (datetime, date, time)):
-        return value.isoformat()
-    raise TypeError(f"Unsupported stop context value: {type(value).__name__}")
+def build_query(*, customer_id: str, situation: str, question: str | None = None) -> str:
+    """What gets embedded: the driver's words, and nothing else.
 
+    Until 11 September this was a JSON object carrying the whole resolved stop —
+    ids, five ISO timestamps, `seq`, `service_minutes`, the stop status — next
+    to what he actually said. None of that is about what he is asking, and the
+    cost was not a rounding error: it put four of six real questions on
+    customer-2 under that customer's own floor, and one question on customer-3
+    *below the measured noise*. SPEC 5.1 has the figures.
 
-def build_query(
-    *, intents: Iterable[Intent], event_type: EventType, customer_id: str,
-    stop_context: Mapping[str, Any] | str,
-) -> str:
+    The reason it is this expensive is worth stating, because it is not
+    obvious. Boilerplate is not neutral: every constant in here is in the noise
+    probe too, so it raises the measured baseline exactly as fast as it raises
+    a real question, while pulling every query toward the same point in the
+    space and compressing the distance between them. A floor is `baseline +
+    margin`, so common text spends headroom and buys no discrimination.
+    Measured against the alternatives it earns its keep least of all: adding
+    the event type costs ~0.04 of floor and drops a real gate report under
+    customer-3's. So nothing is added to every query. Ever.
+
+    `customer_id` selects the corpus in SQL and is deliberately not embedded —
+    a customer id is an identifier, not a thing a driver said.
+
+    `question` is the interpreter's plain-English rendering of what he asked.
+    That is still his words, and it is the half of a romanised Malayalam
+    message that an English SOP can match on.
+    """
     if not customer_id.strip():
         raise ValueError("A resolved customer_id is required")
-    if isinstance(stop_context, Mapping):
-        context_customer = stop_context.get("customer_id", customer_id)
-        if context_customer != customer_id:
-            raise ValueError("Stop context belongs to a different customer")
-    intent_values = sorted({Intent(intent).value for intent in intents})
-    if not intent_values:
-        raise ValueError("At least one intent is required")
-    return json.dumps(dict(
-        intents=intent_values, event_type=EventType(event_type).value,
-        customer_id=customer_id, stop_context=stop_context,
-    ), ensure_ascii=False, sort_keys=True, default=_context_value)
+    words = "\n".join(part.strip() for part in (situation, question) if part and part.strip())
+    if not words:
+        raise ValueError("A query needs the driver's words")
+    return words
 
 
 class Retriever:
@@ -64,10 +67,8 @@ class Retriever:
         """
         scores = [
             chunks[0].score for probe in NOISE_PROBES
-            if (chunks := self.sops.search(customer_id, self._embed_query(build_query(
-                intents=[Intent.QUESTION], event_type=EventType.ARRIVED_STOP,
-                customer_id=customer_id, stop_context={"situation": probe, "customer_id": customer_id},
-            ))))
+            if (chunks := self.sops.search(customer_id, self._embed_query(
+                build_query(customer_id=customer_id, situation=probe))))
         ]
         baseline = max(scores, default=0.0)
         save_baseline(
@@ -85,11 +86,10 @@ class Retriever:
         return None if baseline is None else min(1.0, baseline + CITATION_MARGIN)
 
     def retrieve(
-        self, *, intents: Iterable[Intent], event_type: EventType, customer_id: str,
-        stop_context: Mapping[str, Any] | str,
+        self, *, customer_id: str, situation: str, question: str | None = None,
     ) -> RetrievalResult:
         query = build_query(
-            intents=intents, event_type=event_type, customer_id=customer_id, stop_context=stop_context,
+            customer_id=customer_id, situation=situation, question=question,
         )
         vector = self._embed_query(query)
         sop_chunks = self.sops.search(customer_id, vector)

@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy import create_engine, delete, select, text, update
 from sqlalchemy.exc import IntegrityError
 
-from app.contracts.enums import EventType, ExceptionStatus, Intent, ResolutionStatus
+from app.contracts.enums import EventType, ExceptionStatus, ResolutionStatus
 from app.contracts.event import OperationalEvent
 from app.contracts.exception import OperationalException
 from app.contracts.retrieval import RetrievalResult, UnorderedChunks, chunk_id
@@ -102,10 +102,7 @@ def measure(retriever, *customer_ids):
 
 
 def retrieve(retriever, customer_id="customer-2"):
-    return retriever.retrieve(
-        intents=[Intent.REPORT, Intent.QUESTION], event_type=EventType.GATE_CLOSED,
-        customer_id=customer_id, stop_context={"seq": 2, "status": "ARRIVED"},
-    )
+    return retriever.retrieve(customer_id=customer_id, situation="fixture")
 
 
 def test_pgvector_top_three_cosine_scores_and_customer_filter(engine, embedder):
