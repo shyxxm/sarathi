@@ -22,6 +22,8 @@ class RecordingLangfuse:
     def start_as_current_observation(self, *, name, trace_context=None, **fields):
         node = SimpleNamespace(name=name, parent=self._open[-1].name if self._open else None,
                                trace_context=trace_context, fields=dict(fields), trace_io={})
+        node.id = f"span-{len(self.observations)}"
+        node.trace_id = (trace_context or {}).get("trace_id", "current-trace")
         node.update = lambda **more: node.fields.update(more)
         node.set_trace_io = lambda **io: node.trace_io.update(io)
         self.observations.append(node)

@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 
 from app.api.service import MessageUnavailable
@@ -8,6 +9,22 @@ from app.api.views import context
 from app.api.web import form_values, render
 
 router = APIRouter()
+
+
+@router.get("/driver/replies/{reply_id}/audio")
+def reply_audio(reply_id: str, request: Request):
+    service = request.app.state.shift
+    with service.lock:
+        exchanges = [*service.recorded_exchanges(service.state), *service.exchanges]
+        exchange = next((item for item in reversed(exchanges) if item.id == reply_id), None)
+        parent = service.reply_trace_parents.get(reply_id)
+    if exchange is None:
+        raise HTTPException(404, "Reply not found")
+    # Separate request, after the text is on screen. No shift lock during I/O.
+    rendered = request.app.state.reply_audio.render(reply_id, exchange.reply, parent=parent)
+    if rendered.audio is None:
+        return Response(status_code=204)
+    return Response(rendered.audio, media_type="audio/wav")
 
 
 @router.get("/driver")

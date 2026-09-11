@@ -12,7 +12,8 @@ It also notices when he has gone quiet, and checks on him.
 
 *Sarathi — the charioteer. The one who guides, not the one who watches.*
 
-v0.1 is text in, text out, for one simulated trip. Voice is next (M6).
+One simulated trip, text input and optional spoken replies. Speech input is
+still to come (M6, second half).
 
 ## Who it's for
 
@@ -119,7 +120,15 @@ That project and its keys are created on first start, in Langfuse's own
 Postgres. Every driver message is one trace, found by its message id. If
 Langfuse is down, Sarathi runs unchanged.
 
-All models go through LiteLLM, so any provider works. The interpreter
+For spoken replies, set `TTS_PROVIDER=sarvam` and `SARVAM_API_KEY` in `.env`.
+Text arrives first; audio plays when ready, with a replay button. Missing
+settings or a failed TTS call leave the text reply working. Only the reply
+prose is synthesised. Audio is cached by reply id until the app restarts.
+If the browser blocks autoplay, tap Replay reply. Run the live m06 check with
+`uv run python scripts/check_tts.py`; audio, text and timings go to
+`/tmp/sarathi-m06`.
+
+Language models go through LiteLLM, so any provider works. The interpreter
 calibration set runs against a local Ollama model by default, unmetered and
 not a quality signal. Add `--score` to run it on the configured cheap tier:
 
@@ -138,7 +147,7 @@ uv run python scripts/check_interpreter.py [--score]
   state.
 - **Customer messages are never sent.** Approving a draft records a review and
   nothing else.
-- **Not yet built:** voice in and out (M6); corrections and precedent
+- **Not yet built:** speech input (M6, second half); corrections and precedent
   write-back (M7); a LangGraph port and FastMCP tools, as learning exercises
   (M8). v0.1 is one trip, five stops, text input.
 

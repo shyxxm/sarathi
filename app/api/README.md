@@ -10,6 +10,15 @@ moment links replay 08:00–18:00 without changing submitted reports or approval
 Playback pauses briefly at key events, including the watchdog firings at 13:42
 and 14:16. Current-shift `+1 min` / `+15 min` runs the watchdog on live state.
 
+With `TTS_PROVIDER=sarvam` and `SARVAM_API_KEY`, the driver page fetches speech
+after rendering the reply. The separate audio request synthesises only the
+routed prose, using Bulbul v3, and plays it automatically. Replay reuses the
+same audio; browser autoplay restrictions leave a tap-to-play control. Page
+polls neither restart nor interrupt playback. Missing configuration or a failed
+call (20-second socket timeout, no retry) leaves the reply as text. The cache,
+including failed attempts, lasts for this process. A live reply's TTS span
+uses its message trace as parent, even though that trace has already ended.
+
 Replay loads real responder and critic outputs from
 `app/data/seed/replay_assessments.json`, captured against the seeded SOP index.
 These are labelled captured model checks; interpretation is fixture-provided.

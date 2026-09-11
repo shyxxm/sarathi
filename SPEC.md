@@ -1309,6 +1309,42 @@ labels and the composer's error messages.
 
 ---
 
+### 7.3 Spoken replies — M6, first half
+
+Text input stays as it is. `voice/tts.py` provides a TTS interface, initially
+implemented by Sarvam Bulbul v3. `TTS_PROVIDER=sarvam` and `SARVAM_API_KEY`
+enable it; either missing, an unsupported provider, or a failed call leaves
+the reply as text.
+
+Audio is a rendering step after routing. The driver page requests it after the
+text renders, so neither the message pipeline nor the shift waits for TTS.
+Only `DriverReply.text` is synthesised, unchanged. The separate facts and
+claims lists remain on screen and are not appended to the spoken text.
+
+The page plays available audio automatically, with a replay/pause control.
+Browsers that refuse autoplay leave replay available by tap. Polling neither
+restarts nor interrupts it; a new reply stops the old audio. Cache by reply id,
+including concurrent requests and failures, for the life of the demo process.
+Replay never re-synthesises.
+
+The TTS call is a span under the original live message trace, linked by saved
+trace and parent-span ids across the later audio request. Record latency and
+whether it fell back to text. Trace failure still changes nothing. Captured
+replay replies have no live message trace to attach to.
+
+`scripts/check_tts.py` runs m06 through the live text pipeline, then TTS and a
+cached replay. It saves the exact spoken text, WAV and timings for listening.
+Successful synthesis alone does not establish pronunciation quality for the
+Malayalam-English mixture; that needs listening against the text.
+
+Measured 11 September 2026, one live m06: text 24.05 s, then TTS 5.76 s;
+36.38 s of WAV audio, no text fallback. The prose mixed Malayalam with
+`Kochi Homeware Distributors`, `10:12`, `10:13`, `10:00–12:00` and figures
+including `40`, `60` and `59`. Cached replay: 0.006 ms, no synthesis.
+Pronunciation has not yet been reviewed by listening.
+
+---
+
 ## 8. Scope
 
 **v1, must finish:** 1 trip · 5 stops · text input · interpreter · identity

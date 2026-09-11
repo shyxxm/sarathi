@@ -147,6 +147,7 @@ class ShiftService:
         self.approvals: dict[str, Approval] = {}
         self.pending_messages: set[str] = set()
         self.completed_messages: set[str] = set()
+        self.reply_trace_parents: dict[str, dict] = {}
         self.revision = 0
         self._queue_drafts()
 
@@ -397,6 +398,8 @@ class ShiftService:
                                           "processing failure, sent to a dispatcher")
             with self.lock:
                 self.exchanges.append(exchange)
+                if parent := trace.parent():
+                    self.reply_trace_parents[exchange.id] = parent
                 self.completed_messages.add(message_id)
             return
         # SPEC 1's two branches. A message that reports nothing is not
@@ -474,6 +477,8 @@ class ShiftService:
                 raise MessageUnavailable("The shift changed while I read this. Your message has not been recorded. Please send it again.")
             self.state = updated
             self._save_exchange(exchange, event.stop_id)
+            if parent := trace.parent():
+                self.reply_trace_parents[exchange.id] = parent
             self._queue_drafts()
             self.completed_messages.add(message_id)
             self.revision += 1
@@ -545,10 +550,13 @@ class ShiftService:
                 LOG.warning("Live safety check failed for %s", exception_id, exc_info=True)
                 raise MessageUnavailable("The reply could not be checked. Check the configured models and indexed SOPs, then try again.") from None
             _trace_route(trace, exchange, "a dispatcher ran a live safety check", state, exception.stop_id)
+            parent = trace.parent()
         exchange = Exchange(check_id, now, exchange.transcript, exchange.reply,
                             exchange.chunks, exchange.assessment, understood, exchange.retrieval)
         with self.lock:
             if revision != self.revision:
                 raise MessageUnavailable("The shift changed during the check. Please try again.")
             self._save_exchange(exchange, exception.stop_id)
+            if parent:
+                self.reply_trace_parents[exchange.id] = parent
             self.revision += 1

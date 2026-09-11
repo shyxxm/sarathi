@@ -14,6 +14,12 @@
       {% if latest and latest.failure %}<span class="pill amber">Sent to a dispatcher</span>{% elif latest and latest.reply.mode.value != 'SPEAK' %}<span class="pill amber">Checking with the office</span>{% endif %}
     </div>
     <p class="reply-text" {% if latest and latest.reply.language.value in ['ml', 'hi'] %}lang="{{ latest.reply.language.value }}"{% endif %}>{{ latest.reply.text if latest else ' '.join(seed_facts) }}</p>
+    {% if latest %}
+    <div class="reply-audio" data-reply-id="{{ latest.id }}" data-audio-url="{{ url_for('reply_audio', reply_id=latest.id) }}">
+      <button type="button" data-replay-audio hidden>Replay reply</button>
+      <span class="muted" data-audio-status role="status"></span>
+    </div>
+    {% endif %}
     <div class="recorded-facts"><h4><span class="fact-marker">FACTS</span> {{ 'What happened' if latest and latest.failure else 'What we recorded' }}</h4>
       <ul>{% for fact in (latest.reply.restated_facts if latest else seed_facts) %}<li>{{ fact }}</li>{% endfor %}</ul>
     </div>

@@ -92,6 +92,17 @@ class Trace(Observation):
         super().__init__(span)
         self._stack, self._propagate, self._input, self._ids = stack, propagate, input, {}
 
+    def parent(self):
+        """Carry only ids across the later audio request, never an open span."""
+        if self._span is not None:
+            try:
+                return {"trace_context": {"trace_id": self._span.trace_id,
+                                          "parent_span_id": self._span.id},
+                        "ids": dict(self._ids)}
+            except Exception:
+                LOG.debug("Reading trace ids failed", exc_info=True)
+        return None
+
     def tag(self, build):
         """Add ids as they are resolved: the stop and the exception are not
         known when the message arrives. Call it with no child observation open —
@@ -149,12 +160,20 @@ def trace(name: str, *, seed: str, input=None, **ids):
 
 
 @contextmanager
-def observe(name: str, *, as_type: str = "span", **fields):
-    """A span or a generation under the current trace, and nothing outside one."""
-    backend = _load() if _in_trace.get() else None
+def observe(name: str, *, as_type: str = "span", parent=None, **fields):
+    """Under the current trace, or a saved parent for deferred rendering."""
+    backend = _load() if _in_trace.get() or parent else None
     stack, handle = ExitStack(), Observation()
     if backend is not None:
         try:
+            if parent:
+                fields["trace_context"] = parent["trace_context"]
+                ids = parent["ids"]
+                stack.enter_context(backend[1](
+                    session_id=ids.get("trip_id"),
+                    tags=sorted(f"{key.removesuffix('_id')}:{value}" for key, value in ids.items()),
+                    metadata=ids,
+                ))
             handle = Observation(stack.enter_context(backend[0].start_as_current_observation(
                 name=name, as_type=as_type, **fields)))
         except Exception:
