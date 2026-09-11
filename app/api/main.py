@@ -4,11 +4,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import tracing
 from app.api import dispatcher, driver
 from app.api.service import ShiftService
 
 
 def create_app(service: ShiftService | None = None) -> FastAPI:
+    tracing.start()
     application = FastAPI(title="Sarathi", docs_url=None, redoc_url=None)
     application.state.shift = service if service is not None else ShiftService()
     application.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

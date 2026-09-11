@@ -176,6 +176,12 @@ def event(name: str, build):
         span.record(build)
 
 
+def start():
+    """Build the client at app startup rather than on the first driver
+    message: the SDK import and setup cost about 300 ms, once."""
+    _load()
+
+
 def flush():
     """For scripts that exit straight after. The app never calls this on a
     request path: with Langfuse unreachable it would wait out the timeout."""

@@ -394,3 +394,14 @@ def test_a_model_call_is_a_generation_inside_the_message_trace_and_nowhere_else(
     with pytest.raises(InterpreterError), tracing.trace("driver message", seed="m-2"):
         interpreter.interpret("How much free waiting time does this customer allow?", model="anthropic/test")
     assert langfuse.named("interpreter").fields["level"] == "ERROR"
+
+
+def test_an_escalation_does_not_double_the_full_stop():
+    """m06g was told "…which stop this is about.. Someone at the office…"."""
+    one = router.escalation_text(
+        ["I could not make out what happened or which stop this is about."], Language.EN)
+    assert one == ("Recorded: I could not make out what happened or which stop this is about. "
+                   "Someone at the office is checking the rest now.")
+    two = router.escalation_text(
+        ["The gate is closed — stop 2, Kochi Homeware.", "Your arrival was recorded at 10:12."], Language.EN)
+    assert ".." not in two and "Kochi Homeware; Your arrival was recorded at 10:12. Someone" in two

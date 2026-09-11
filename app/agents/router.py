@@ -101,7 +101,10 @@ def escalation_text(facts: list[str], language: Language) -> str:
     on the hedged one.
     """
     opening, closing = ESCALATION.get(language, ESCALATION[Language.EN])
-    return f"{opening.format(facts='; '.join(facts))} {closing}"
+    # Facts arrive as sentences with their own full stop, and the template
+    # closes with one: "…which stop this is about.." was spoken to a driver.
+    joined = "; ".join(fact.rstrip(" .") for fact in facts)
+    return f"{opening.format(facts=joined)} {closing}"
 
 
 FAILURE_CLOSING = "A dispatcher has your message and will get back to you."
