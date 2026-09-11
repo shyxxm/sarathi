@@ -13,6 +13,10 @@ from pydantic import BaseModel, ConfigDict
 from app.contracts.enums import EventType, Language, StopStatus
 from app.contracts.event import OperationalEvent
 from app.contracts.exception import OperationalException
+from app.domain import words
+# English, for the board, drafts and the responder's context. What a driver
+# hears goes through `words` in his language (SPEC 7.2).
+from app.domain.words import EVENT_WORDS, STATUS_PHRASE  # noqa: F401
 
 AT_STOP = frozenset({StopStatus.ARRIVED, StopStatus.IN_SERVICE})
 FINISHED = frozenset({StopStatus.COMPLETED, StopStatus.FAILED, StopStatus.REATTEMPT_SCHEDULED})
@@ -209,48 +213,6 @@ TRANSITIONS: Mapping[EventType, tuple[frozenset[StopStatus], StopStatus]] = {
         frozenset(AT_STOP | {StopStatus.FAILED}), StopStatus.REATTEMPT_SCHEDULED),
 }
 
-STATUS_PHRASE: Mapping[StopStatus, str] = {
-    StopStatus.PENDING: "not started",
-    StopStatus.EN_ROUTE: "on the way",
-    StopStatus.ARRIVED: "arrived, unloading not started",
-    StopStatus.IN_SERVICE: "unloading",
-    StopStatus.COMPLETED: "delivered",
-    StopStatus.FAILED: "not delivered",
-    StopStatus.REATTEMPT_SCHEDULED: "waiting for a reattempt",
-}
-
-# What each event is called anywhere a driver can read or hear it: his record,
-# the board, and the responder's context. Never the enum name — Sonnet copied
-# "GATE_CLOSED exception … open" out of its context into a spoken fact.
-EVENT_WORDS: Mapping[EventType, str] = {
-    EventType.DEPARTED: "You set off",
-    EventType.ARRIVED_STOP: "You arrived",
-    EventType.SERVICE_STARTED: "Unloading started",
-    EventType.STOP_COMPLETED: "Delivery completed",
-    EventType.GATE_CLOSED: "The gate is closed",
-    EventType.CONSIGNEE_ABSENT: "Nobody is there to receive the delivery",
-    EventType.VEHICLE_BREAKDOWN: "The vehicle has broken down",
-    EventType.DOCUMENT_ISSUE: "There is a problem with the paperwork",
-    EventType.SHORTAGE_OR_DAMAGE: "A shortage or damage was reported",
-    EventType.DELIVERY_REFUSED: "The delivery was refused",
-    EventType.ACKNOWLEDGEMENT: "Your message was received",
-    EventType.UNCLEAR: "Your message needs clarification",
-    EventType.STOP_OVERDUE: "We checked whether you need help reaching the stop",
-    EventType.DRIVER_SILENT: "Everything alright? Need anything?",
-    EventType.WINDOW_AT_RISK: "The delivery window may be missed",
-    EventType.DETENTION_CROSSED: "The recorded wait passed the free allowance",
-    EventType.REATTEMPT_SCHEDULED: "Another delivery attempt was scheduled",
-}
-
-EVENT_PHRASE: Mapping[EventType, str] = {
-    EventType.ARRIVED_STOP: "you have reached it",
-    EventType.SERVICE_STARTED: "unloading has started",
-    EventType.STOP_COMPLETED: "the delivery is done",
-    EventType.DELIVERY_REFUSED: "they refused it",
-    EventType.DEPARTED: "you have set off",
-    EventType.REATTEMPT_SCHEDULED: "we are setting up another attempt",
-}
-
 
 def apply(state: TripState, event: OperationalEvent, now: datetime) -> tuple[TripState, Outcome]:
     """Fold one event into the trip. Returns the new state and what happened.
@@ -258,7 +220,7 @@ def apply(state: TripState, event: OperationalEvent, now: datetime) -> tuple[Tri
     On rejection the state returned is the state passed in, unchanged.
     """
     if now > state.shift_end:
-        return state, Rejected(event, "Today's trip is already closed off. I will pass this to the office.")
+        return state, Rejected(event, _say(state, "reject.shift_closed"))
 
     if event.event_type is EventType.DEPARTED:
         return _depart(state, event)
@@ -267,7 +229,7 @@ def apply(state: TripState, event: OperationalEvent, now: datetime) -> tuple[Tri
 
     stop = _subject(state, event)
     if stop is None:
-        return state, Rejected(event, "I am not sure which stop that is about. Which stop are you at?")
+        return state, Rejected(event, _say(state, "reject.which_stop"))
 
     allowed, after = TRANSITIONS[event.event_type]
     if stop.status is after:
@@ -287,7 +249,7 @@ def _depart(state: TripState, event: OperationalEvent) -> tuple[TripState, Outco
     """
     stop = state.stop(event.stop_id)
     if stop is None:
-        return state, Rejected(event, "I am not sure where you are leaving from. Which stop?")
+        return state, Rejected(event, _say(state, "reject.leaving_from"))
 
     if stop.status is StopStatus.PENDING:
         # Nothing has been reached yet, so this is the depot and that stop is
@@ -314,25 +276,27 @@ def _subject(state: TripState, event: OperationalEvent) -> StopState | None:
     return state.stop(event.stop_id)
 
 
+def _say(state: TripState, key: str, **slots) -> str:
+    """His words, in his language once its table is written (SPEC 7.2)."""
+    return words.say(words.spoken(state.driver_language), key, **slots)
+
+
 def _label(state: TripState, stop: StopState) -> str:
-    return f"stop {stop.seq}, {state.customer(stop.customer_id).name}"
+    return _say(state, "label.stop", seq=stop.seq, customer=state.customer(stop.customer_id).name)
 
 
 def _already(state: TripState, stop: StopState) -> str:
-    return (
-        f"I already have {_label(state, stop)} as {STATUS_PHRASE[stop.status]}. "
-        "Has something changed?"
-    )
+    return _say(state, "reject.already", stop=_label(state, stop),
+                status=_say(state, f"status.{stop.status.value}"))
 
 
 def _disagrees(state: TripState, stop: StopState, event: OperationalEvent) -> str:
     if event.event_type is EventType.ARRIVED_STOP and stop.status is StopStatus.PENDING:
         return _wrong_stop(state, stop)
-    said = EVENT_PHRASE.get(event.event_type, "something else happened")
-    return (
-        f"I have {_label(state, stop)} as {STATUS_PHRASE[stop.status]}, "
-        f"and you are telling me {said}. Which is right?"
-    )
+    key = f"said.{event.event_type.value}"
+    said = _say(state, key if key in words.EN else "said.other")
+    return _say(state, "reject.disagrees", stop=_label(state, stop),
+                status=_say(state, f"status.{stop.status.value}"), said=said)
 
 
 def _wrong_stop(state: TripState, stop: StopState) -> str:
@@ -340,8 +304,5 @@ def _wrong_stop(state: TripState, stop: StopState) -> str:
     ten we have the wrong stop, not the wrong driver, so ask him which."""
     here = state.current_stop()
     if here is None or here.id == stop.id:
-        return "I do not have you on the road yet. Did you leave the depot?"
-    return (
-        f"I have you on the way to {_label(state, here)}, not {_label(state, stop)}. "
-        "Which stop have you reached?"
-    )
+        return _say(state, "reject.not_on_road")
+    return _say(state, "reject.wrong_stop", here=_label(state, here), stop=_label(state, stop))

@@ -26,6 +26,7 @@ from app.agents.safety_critic import Assessment
 from app.contracts.enums import Language, ReplyMode
 from app.contracts.event import InterpreterOutput
 from app.contracts.reply import DriverReply, ResponderOutput
+from app.domain import words
 
 SPEAK_FLOOR = 0.75
 HEDGE_FLOOR = 0.5
@@ -37,31 +38,9 @@ HEDGE_FLOOR = 0.5
 # One closing sentence, not two. "I'm checking with the office" followed by
 # "someone is looking at it now" is the same sentence twice, and it was landing
 # on top of a draft that had already said it.
-ESCALATION: dict[Language, tuple[str, str]] = {
-    Language.EN: (
-        "Recorded: {facts}.",
-        "Someone at the office is checking the rest now.",
-    ),
-    Language.ML: (
-        "രേഖപ്പെടുത്തി: {facts}.",
-        "ബാക്കി ഓഫീസിൽ ഒരാൾ നോക്കുന്നുണ്ട്.",
-    ),
-    Language.MIXED: (
-        "രേഖപ്പെടുത്തി: {facts}.",
-        "ബാക്കി ഓഫീസിൽ ഒരാൾ check ചെയ്യുന്നുണ്ട്.",
-    ),
-    Language.HI: (
-        "दर्ज कर लिया: {facts}.",
-        "बाकी ऑफिस में एक व्यक्ति देख रहा है.",
-    ),
-}
-
-HEDGE: dict[Language, str] = {
-    Language.EN: "I'm confirming this with the office.",
-    Language.ML: "ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
-    Language.MIXED: "ഇത് ഓഫീസിൽ confirm ചെയ്യുന്നുണ്ട്.",
-    Language.HI: "यह ऑफिस से पक्का कर रहा हूँ.",
-}
+#
+# The wording, in every language, is `escalation.*`, `failure.closing` and
+# `hedge` in `domain/words.py` (SPEC 7.2).
 
 
 def mode_for(assessment: Assessment, *, understood: InterpreterOutput) -> ReplyMode:
@@ -100,22 +79,18 @@ def escalation_text(facts: list[str], language: Language) -> str:
     office line ended up being said twice on the fallback path and three times
     on the hedged one.
     """
-    opening, closing = ESCALATION.get(language, ESCALATION[Language.EN])
     # Facts arrive as sentences with their own full stop, and the template
     # closes with one: "…which stop this is about.." was spoken to a driver.
     joined = "; ".join(fact.rstrip(" .") for fact in facts)
-    return f"{opening.format(facts=joined)} {closing}"
+    return (f"{words.say(language, 'escalation.opening', facts=joined)} "
+            f"{words.say(language, 'escalation.closing')}")
 
 
-FAILURE_CLOSING = "A dispatcher has your message and will get back to you."
-
-
-def failure_text(facts: list[str]) -> str:
+def failure_text(facts: list[str], language: Language) -> str:
     """SPEC 2.2: the interpreter failed, so there is no reading of his to
     restate — only what happened to his message, and who has it now. Not
-    "Recorded:", because nothing was. English, for the reason `_fallback`
-    gives: the facts are."""
-    return f"{' '.join(facts)} {FAILURE_CLOSING}"
+    "Recorded:", because nothing was. In the language the facts are in."""
+    return f"{' '.join(facts)} {words.say(language, 'failure.closing')}"
 
 
 def route(
@@ -144,13 +119,16 @@ def route(
 
     if mode is ReplyMode.ESCALATE:
         # The draft may contain the very sentence grounding rejected, so none
-        # of it is spoken. His facts are: code wrote them from state (SPEC 5.2).
-        # They are English, like every fact code writes, so the wrapper is
-        # English too rather than English facts inside his language.
-        text, language = escalation_text(list(facts), Language.EN), Language.EN
+        # of it is spoken. His facts are: code wrote them from state (SPEC 5.2)
+        # in the language `words.spoken` chose, and the wrapper is said in that
+        # same one — never his language around English facts (SPEC 7.2).
+        language = words.spoken(language)
+        text = escalation_text(list(facts), language)
         claims = ()
     elif mode is ReplyMode.SPEAK_HEDGED:
-        text = f"{draft.text} {HEDGE.get(language, HEDGE[Language.EN])}"
+        # Appended to text the responder wrote in his language, so this one
+        # line is his language wherever it is written.
+        text = f"{draft.text} {words.line(language, 'hedge')}"
     else:
         text = draft.text
 

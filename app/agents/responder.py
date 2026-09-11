@@ -30,6 +30,7 @@ from app.contracts.event import InterpreterOutput
 from app.contracts.exception import OperationalException
 from app.contracts.reply import ResponderOutput
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
+from app.domain import words
 from app.domain.detention import Detention
 from app.domain.state_machine import EVENT_WORDS, STATUS_PHRASE, CustomerTerms, StopState
 
@@ -131,35 +132,50 @@ class ResponderContext:
         Which figures are ours is a question about state, so the model neither
         writes this list nor decides what goes in it — the same fix as identity
         (SPEC 1.1). It is the reply's `restated_facts`, and it is what grounding
-        is told we already knew. English, like every other fact code writes.
+        is told we already knew. In his language once its table is written,
+        English until then — the whole list in one (SPEC 7.2).
         """
-        facts, opened = [], self.exception
+        lang, facts, opened = words.spoken(self.language), [], self.exception
+
+        def say(key, **slots):
+            return words.say(lang, key, **slots)
+
+        def happened(kind):
+            return say(f"event.{kind.value}")
+
+        def minutes(count):
+            return words.minutes(lang, count)
+
         if self.stop is not None and self.customer is not None:
-            facts.append(f"Stop {self.stop.seq}, {self.customer.name}: {STATUS_PHRASE[self.stop.status]}.")
+            facts.append(say("fact.stop", seq=self.stop.seq, customer=self.customer.name,
+                             status=say(f"status.{self.stop.status.value}")))
         reported = self.transcript and self.event_type not in (None, EventType.ACKNOWLEDGEMENT)
         if reported and not (opened and opened.exception_type is self.event_type):
-            facts.append(f"{EVENT_WORDS[self.event_type]}.")
+            facts.append(say("fact.event", event=happened(self.event_type)))
         # A problem he reported, not one we detected: "we flagged you overdue"
         # is not a fact to read to a driver (CLAUDE.md rule 1).
         if opened is not None and opened.opened_by == "driver":
-            facts.append(f"{EVENT_WORDS[opened.exception_type]} — recorded at {opened.opened_at:%H:%M}.")
+            facts.append(say("fact.problem", event=happened(opened.exception_type),
+                             time=f"{opened.opened_at:%H:%M}"))
         if self.question_text:
-            facts.append(f'You asked: "{self.question_text}"')
+            facts.append(say("fact.asked", question=self.question_text))
         if self.driver_claimed_wait_minutes is not None:
-            facts.append(f"You said you have been waiting {_minutes(self.driver_claimed_wait_minutes)}.")
+            facts.append(say("fact.claimed_wait", minutes=minutes(self.driver_claimed_wait_minutes)))
         if self.detention is not None:
             waiting = self.detention
-            facts.append(f"Waiting counted from {waiting.arrival_observed_at:%H:%M}, when we recorded "
-                         f"your arrival: {_minutes(waiting.observed_wait_minutes)} so far.")
-            facts.append(f"Free time here: {_minutes(waiting.free_detention_minutes)}.")
+            facts.append(say("fact.waiting", time=f"{waiting.arrival_observed_at:%H:%M}",
+                             minutes=minutes(waiting.observed_wait_minutes)))
+            facts.append(say("fact.free_time", minutes=minutes(waiting.free_detention_minutes)))
             facts.append(
-                f"Past the free time by {_minutes(waiting.billable_minutes)}." if waiting.crossed else
-                f"{_minutes(waiting.free_detention_minutes - waiting.observed_wait_minutes)} of free time left.")
+                say("fact.past_free", minutes=minutes(waiting.billable_minutes)) if waiting.crossed else
+                say("fact.free_left",
+                    minutes=minutes(waiting.free_detention_minutes - waiting.observed_wait_minutes)))
         if self.stop is not None:
-            facts.append(f"Delivery window {self.stop.window_open:%H:%M}–{self.stop.window_close:%H:%M}.")
+            facts.append(say("fact.window", open=f"{self.stop.window_open:%H:%M}",
+                             close=f"{self.stop.window_close:%H:%M}"))
         if self.now is not None:
-            facts.append(f"It is now {self.now:%H:%M}.")
-        return tuple(facts) or (f"{EVENT_WORDS[EventType.ACKNOWLEDGEMENT]}.",)
+            facts.append(say("fact.now", time=f"{self.now:%H:%M}"))
+        return tuple(facts) or (say("fact.event", event=happened(EventType.ACKNOWLEDGEMENT)),)
 
     def _record(self) -> str:
         lines = ["", "## On record — say these back to him in `text`", "",

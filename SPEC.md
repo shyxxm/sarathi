@@ -323,6 +323,23 @@ is present in `text` — entailment across languages, since claims can come back
 in English under Malayalam prose — so it is a model call, and it would sit
 beside grounding. **Not built.**
 
+**A second case, the other way round.** Once code wrote the facts (§5.2), the
+consignee-absent reply's record said `Delivery window 11:30–13:00.` The
+responder spoke it as "ഡെലിവറി വിൻഡോ 11:30 മുതൽ 1:00 വരെ" — 13:00 as 1:00,
+under a prompt that says to keep every number exactly as the list has it. The
+first case was a claim verified and never said. This one is a fact on record,
+said differently. They are the same gap: nothing checks what is spoken against
+what is on record — not the claims grounding accepted, and not the facts code
+wrote.
+
+The only guard today is §2's restatement loop: he hears the figure and can
+correct it. It holds here because what he heard is still a correct time — one
+in the afternoon is 13:00. It would not hold for a figure he has nothing to
+check against. A rate or a free-time allowance rendered loosely — 150 paise a
+minute heard as 15, sixty minutes free heard as sixteen — is not something a
+driver catches by hearing it, because he never had the right number to begin
+with.
+
 ---
 
 ## 3. Contracts
@@ -1140,10 +1157,9 @@ says them back in `text`, and it makes claims. A record figure inside a claim is
 the responder ignoring its instructions, and grounding's existing refusal covers
 it.
 
-Code-written facts are in English, like every other fact code writes. An
-escalation speaks only facts, so it is in English too, rather than English facts
-inside a Malayalam wrapper. Malayalam templates for code-written facts would
-change that; that is a decision about driver-facing Malayalam, not made here.
+Code-written facts are said in his language through the table in §7.2, once its
+Malayalam is written. Until then they are English, and so is an escalation,
+which speaks only facts — never English facts inside a Malayalam wrapper.
 
 ---
 
@@ -1237,6 +1253,38 @@ session is the trip.
   trips and messages, as exceptions do.
 - **Its own database.** `docker compose --profile tracing up -d` runs Langfuse
   on its own Postgres. Traces and operational truth never share one.
+
+### 7.2 Code's words to the driver
+
+**Everything code says to a driver comes from one table, `domain/words.py`, by
+language.** The event and stop words in his record of the day, the facts
+restated with a model reply (§5.2), read-backs, the state machine's questions
+when it disagrees with him, check-ins, and the escalation, failure and hedge
+lines. The dispatcher's board, customer drafts, the responder's context and
+traces stay English, and read the English column.
+
+This is M4's `EVENT_WORDS` problem again, at the scale of every sentence code
+writes. A Malayalam speaker who escalated — exactly when he most needs to
+understand what is happening — heard English end to end, because every line
+code wrote for him was English.
+
+- **Whole sentences with named slots, per language.** Never English fragments
+  stitched together: Malayalam word order is not English word order. A
+  translation may drop a slot but never invent one, and the suite checks every
+  written line against the slots its English offers.
+- **One utterance, one language.** `spoken()` gives his language once its table
+  is complete, and English until then. Never half of each: a half-written
+  table is how a driver comes to hear two languages in one reply. The hedge
+  line is the one exception — it is appended to text the responder already
+  wrote in his language, so it is looked up on its own.
+- **A driver never hears a marker.** A line not yet written is said in
+  English, whole.
+
+**State, 11 September 2026:** English complete. Malayalam lists every key, with
+`TODO` on all but the three lines that already existed — the escalation opening
+and closing, and the hedge. Until the rest are written, code's words to a
+Malayalam speaker stay English, as they were. Not covered: the driver page's own
+labels and the composer's error messages.
 
 ---
 

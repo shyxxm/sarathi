@@ -17,7 +17,7 @@ from app.contracts.enums import EventType, Intent, Language, ReplyMode
 from app.contracts.event import InterpreterOutput, OperationalEvent
 from app.contracts.reply import Claim, DriverReply
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
-from app.domain import detention, exception_rules, identity, resolution, watchdog
+from app.domain import detention, exception_rules, identity, resolution, watchdog, words
 from app.domain.state_machine import EVENT_WORDS, FINISHED, Rejected, TripState, apply
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,13 +26,18 @@ MINUTE = timedelta(minutes=1)
 
 
 def event_facts(state: TripState, event: OperationalEvent) -> list[str]:
+    """His record of one event, in his language once its table is written."""
+    lang = words.spoken(state.driver_language)
     stop = state.stop(event.stop_id)
-    where = f" — stop {stop.seq}, {state.customer_for(stop.id).name}" if stop else ""
-    facts = [f"{EVENT_WORDS[event.event_type]}{where}."]
+    happened = words.say(lang, f"event.{event.event_type.value}")
+    facts = [words.say(lang, "record.event_at_stop", event=happened, seq=stop.seq,
+                       customer=state.customer_for(stop.id).name) if stop
+             else words.say(lang, "record.event", event=happened)]
     if event.event_type is EventType.ARRIVED_STOP:
-        facts.append(f"Your arrival was recorded at {event.ingested_at:%H:%M}.")
+        facts.append(words.say(lang, "record.arrival", time=f"{event.ingested_at:%H:%M}"))
     if event.driver_claimed_wait_minutes is not None:
-        facts.append(f"You said you had waited about {event.driver_claimed_wait_minutes} minutes.")
+        facts.append(words.say(lang, "record.claimed_wait",
+                               minutes=words.minutes(lang, event.driver_claimed_wait_minutes)))
     return facts
 
 
@@ -108,12 +113,9 @@ class MessageUnavailable(Exception):
     pass
 
 
-# SPEC 2.2. The fault is ours. "I couldn't read your message" was said here
-# about perfectly clean English, and it is a false statement about him.
-INTERPRETER_FAILED = [
-    "Your message reached me, but I could not process it. The fault is ours, not your words.",
-    "Nothing has been recorded on your trip.",
-]
+# SPEC 2.2. What he is told is `failed.*` in `words`: the fault is ours. "I
+# couldn't read your message" was said about perfectly clean English, and it is
+# a false statement about him. The board's line stays English.
 INTERPRETER_FAILED_BOARD = "Sarathi could not interpret this message. Nothing was recorded on the trip."
 
 
@@ -172,7 +174,8 @@ class ShiftService:
             else:
                 facts = event_facts(state, event)
                 result.append(Exchange(event.id, event.ingested_at, event.raw_transcript,
-                                       DriverReply(mode=ReplyMode.SPEAK, language=Language.EN,
+                                       DriverReply(mode=ReplyMode.SPEAK,
+                                                   language=words.spoken(state.driver_language),
                                                    text=" ".join(facts), restated_facts=facts),
                                        origin="state read-back"))
         return result
@@ -227,7 +230,8 @@ class ShiftService:
                     facts = event_facts(self.state, event)
                     self.exchanges.append(Exchange(
                         id=event.id, at=self.now, transcript=None,
-                        reply=DriverReply(mode=ReplyMode.SPEAK, language=Language.EN,
+                        reply=DriverReply(mode=ReplyMode.SPEAK,
+                                          language=words.spoken(self.state.driver_language),
                                           text=" ".join(facts), restated_facts=facts),
                     ))
                     self._mark_informed(event.stop_id)
@@ -378,7 +382,7 @@ class ShiftService:
             # again at temperature 0, and his question reaches nobody. The
             # trip is untouched, so no revision check. SPEC 2.2.
             LOG.warning("Interpreter failed on message %s; escalating", message_id, exc_info=True)
-            exchange = self._failed(text, message_id, now)
+            exchange = self._failed(text, message_id, now, state)
             _trace_route(trace, exchange, f"interpreter failed ({type(error).__name__}): "
                                           "processing failure, sent to a dispatcher")
             with self.lock:
@@ -410,11 +414,12 @@ class ShiftService:
         # Each of these is a fact about the message and nothing else. The
         # sentence saying a person is looking at it is added once, by the
         # router, in `_fallback` — not here as well.
+        lang = words.spoken(state.driver_language)
         issue = None
         if Intent.CORRECTION in understood.intents or understood.contradicts_recent_state:
-            issue = "You asked to correct the record. Your earlier record is unchanged for now."
+            issue = words.say(lang, "issue.correction")
         elif event.unresolved_fields or not understood.transcript_legible:
-            issue = "I could not make out what happened or which stop this is about."
+            issue = words.say(lang, "issue.unclear")
         if issue:
             event = event.model_copy(update={"event_type": EventType.UNCLEAR})
         updated, outcome = record(state, event, now)
@@ -429,12 +434,12 @@ class ShiftService:
         trace.tag(lambda: {"stop_id": event.stop_id, "exception_id": next(
             (ex.id for ex in updated.exceptions if ex.stop_id == event.stop_id and resolution.is_open(ex)), None)})
         if issue:
-            exchange = self._fallback(event, now, [issue])
+            exchange = self._fallback(event, now, [issue], lang)
             why = "escalated without a model reply: the message needs a person"
         elif event.event_type not in exception_rules.OPENS and Intent.QUESTION not in understood.intents:
             facts = event_facts(updated, event)
             exchange = Exchange(event.id, now, text, DriverReply(
-                mode=ReplyMode.SPEAK, language=Language.EN,
+                mode=ReplyMode.SPEAK, language=lang,
                 text=" ".join(facts), restated_facts=facts))
             why = "read back from the record; no model reply needed"
         else:
@@ -451,7 +456,7 @@ class ShiftService:
                 why = "routed on the safety critic's assessment"
             except Exception as error:
                 LOG.warning("Reply services unavailable; retaining the report and escalating", exc_info=True)
-                exchange = self._fallback(event, now, event_facts(updated, event))
+                exchange = self._fallback(event, now, event_facts(updated, event), lang)
                 why = f"reply services failed ({type(error).__name__}): report kept, escalated"
         _trace_route(trace, exchange, why, updated, event.stop_id)
         with self.lock:
@@ -463,27 +468,29 @@ class ShiftService:
             self.completed_messages.add(message_id)
             self.revision += 1
 
-    def _fallback(self, event, now, facts):
+    def _fallback(self, event, now, facts, language):
         """Escalate without a model: the interpreter or the reply services are
         down, or the message was not legible enough to act on.
 
         Worded by the router, not here. Two places writing "I'll check with the
-        office" is how the driver came to hear it twice in one reply, and the
-        facts themselves are already English, so this speaks English rather
-        than wrapping English facts in his language.
+        office" is how the driver came to hear it twice in one reply. `language`
+        is the one `words.spoken` chose for the facts, so the wrapper matches
+        them — never his language around English facts (SPEC 7.2).
         """
         return Exchange(event.id, now, event.raw_transcript, DriverReply(
-            mode=ReplyMode.ESCALATE, language=Language.EN, restated_facts=facts,
-            text=router.escalation_text(facts, Language.EN),
+            mode=ReplyMode.ESCALATE, language=language, restated_facts=facts,
+            text=router.escalation_text(facts, language),
         ))
 
-    def _failed(self, text, message_id, now):
+    def _failed(self, text, message_id, now, state):
         """The interpreter failed. His raw text goes to a dispatcher; nothing
         goes on the trip. Not through `_save_exchange`: it would attach this to
         any open exception with no stop, and it is not about one."""
+        lang = words.spoken(state.driver_language)
+        facts = [words.say(lang, "failed.reached"), words.say(lang, "failed.nothing_recorded")]
         return Exchange(f"message-{message_id}", now, text, DriverReply(
-            mode=ReplyMode.ESCALATE, language=Language.EN, restated_facts=list(INTERPRETER_FAILED),
-            text=router.failure_text(INTERPRETER_FAILED),
+            mode=ReplyMode.ESCALATE, language=lang, restated_facts=facts,
+            text=router.failure_text(facts, lang),
         ), failure=INTERPRETER_FAILED_BOARD)
 
     def _save_exchange(self, exchange, stop_id):
