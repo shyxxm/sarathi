@@ -261,6 +261,44 @@ without costing m08.
 
 The prefill also moved m07 back to `GATE_CLOSED`, 3 of 3 (§2.1).
 
+### 2.3 A second stated boundary: verified is not the same as said
+
+**A claim can be grounded, accepted, and then not appear in the reply.**
+Nothing checks that what was verified is what was spoken.
+
+Found on 11 September 2026, trying the responder on the cheap tier (Haiku 4.5)
+to cut latency. At a shut gate (m06) it returned two claims, and the grounding
+check, on Sonnet, accepted both against customer-2's terms:
+
+```
+[...-003]  A closed gate does not stop the waiting clock — waiting for the      supported
+           entrance to open counts from recorded arrival time.
+[...-002]  Free waiting time is 60 minutes from arrival; beyond that,           supported
+           150 paise per minute.
+```
+
+The spoken text carried the second and not the first. The one sentence a driver
+at a shut gate most needs — his waiting is being counted even though the gate is
+shut — was verified, accepted, listed on the driver page as a citation, and never
+said. The router spoke the reply as `SPEAK_HEDGED` at 0.91.
+
+Grounding cannot see this and was never built to. It checks what is *claimed*:
+each claim against the passage it cites, and the prose for assertions no claim
+declares (`unclaimed_assertions`). An omission is neither. A reply that says
+less than it verified passes every check there is, and the error runs the bad
+way: what drops out is the rule that protects him.
+
+This is the same class as §2.1: the checks score the reply as trustworthy
+because, by every signal they have, it is. The composite even rose — Haiku rated
+its own reply 0.92, against Sonnet's 0.82 on the fuller one.
+
+The mitigation for now is a model choice, not a check. The responder stays on
+the strong tier, which spoke the rule in the same case. That is one sample, not
+a guarantee. A check would have to establish that each grounded claim's content
+is present in `text` — entailment across languages, since claims can come back
+in English under Malayalam prose — so it is a model call, and it would sit
+beside grounding. **Not built.**
+
 ---
 
 ## 3. Contracts
@@ -960,6 +998,8 @@ cited.
 - **It is a second signal, not a better threshold.** Retrieval says *this text
   is nearby*; grounding says *this text says that*. Both being wrong takes two
   independent failures, and §2's restatement loop sits under both.
+- **It checks what is claimed, not what is spoken.** A grounded claim that
+  never reaches `text` passes. That gap is stated in §2.3 and not closed.
 
 Built at M3. The shape it needs is in §3.4: claims small enough to check one at
 a time, each carrying the chunk it rests on, and `cited_sop_ids` derived from
