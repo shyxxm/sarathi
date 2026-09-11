@@ -1,0 +1,216 @@
+{
+  "captured_at": "2026-09-11T06:02:15.572162+00:00",
+  "fixture_sha256": "1c93e6a7993013cbbc25c0839dd6599b70bc6a3764af184a2ebc89e4add69ff7",
+  "exchanges": [
+    {
+      "event_id": "gate-closed",
+      "at": "2026-09-10T10:13:00+05:30",
+      "reply": {
+        "mode": "SPEAK_HEDGED",
+        "language": "ml",
+        "text": "ശരി, കേട്ടു. ചരക്ക് കവാടം അടഞ്ഞിരിക്കുകയാണ്. ഇന്റർകോം അടിക്കൂ, LR കാണിക്കൂ. നിങ്ങൾ 8 മിനിറ്റ് ആയി കാത്തിരിക്കുന്നു എന്ന് പറഞ്ഞു — നമ്മുടെ ക്ലോക്ക് 10:12 മുതൽ ഓടുന്നു, അതായത് നമ്മൾ 1 മിനിറ്റ് കണക്കാക്കുന്നു. ഇപ്പോൾ 59 മിനിറ്റ് ഫ്രീ ടൈം ബാക്കിയുണ്ട്. കവാടം അടഞ്ഞിരുന്നാലും ക്ലോക്ക് ഓടും — ഇത് ഒരു പ്രത്യേക കേസ് അല്ല. ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
+        "restated_facts": [
+          "സ്റ്റോപ്പ് 2: Kochi Homeware Distributors — ചരക്ക് കവാടം അടഞ്ഞിരിക്കുന്നു",
+          "ഡെലിവറി വിൻഡോ: 10:00–12:00",
+          "നിങ്ങൾ 8 മിനിറ്റ് ആയി കാത്തിരിക്കുന്നു എന്ന് പറഞ്ഞു",
+          "നമ്മുടെ ക്ലോക്ക് 10:12 മുതൽ ഓടുന്നു — നമ്മൾ 1 മിനിറ്റ് കണക്കാക്കുന്നു",
+          "ഫ്രീ ടൈം 60 മിനിറ്റ് — ഇപ്പോൾ 59 മിനിറ്റ് ബാക്കിയുണ്ട്"
+        ],
+        "claims": [
+          {
+            "text": "കവാടം അടഞ്ഞിരുന്നാലും കാത്തിരിപ്പ് ക്ലോക്ക് ഓടും — ഇത് ഒരു പ്രത്യേക കേസ് അല്ല, ഡോക്കിൽ കാത്തിരിക്കുന്നതും ഗേറ്റിൽ കാത്തിരിക്കുന്നതും ഒരേ നിയമം.",
+            "cited_chunk_id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003"
+          },
+          {
+            "text": "60 മിനിറ്റ് ഫ്രീ ടൈം കഴിഞ്ഞാൽ മിനിറ്റിന് 150 പൈസ ഡിറ്റൻഷൻ ബാധകമാകും.",
+            "cited_chunk_id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003"
+          }
+        ],
+        "cited_sop_ids": [
+          "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003",
+          "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003"
+        ],
+        "audio_path": null
+      },
+      "chunks": [
+        {
+          "id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003",
+          "customer_id": "customer-2",
+          "source_document": "standing-instructions.md",
+          "text": "## Gate and security\n\n*Getting in — which gate, what papers do I show, who do I report to,\nthe gate is locked and nobody is opening it.*\n\nUse the goods entrance. Ring the intercom and show the LR. The vehicle then\nwaits in the marked bay until the warehouse coordinator assigns a dock.\n\n**A shut gate does not stop the waiting clock.** Waiting for the entrance to be\nopened, and waiting for a dock once inside, are both waiting. Counting runs\nfrom the time the arrival is recorded, not from the time the gate opens or the\ndock is assigned.\n\nSo a driver held at a closed goods entrance is on the same terms as one held in\nthe bay: **60 minutes free from the recorded arrival, then 150 paise a\nminute.** The detention section below is the same rule stated in full; a closed\ngate is not a separate case and does not need a separate answer.",
+          "score": 0.7213223625412103
+        },
+        {
+          "id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-001",
+          "customer_id": "customer-2",
+          "source_document": "standing-instructions.md",
+          "text": "## Delivery window\n\n*Booked time — I'm late, will they still take it, what happens if I\nmiss the slot, is there any grace.*\n\nThere is a grace period at this account, and it has an edge. A vehicle arriving\nup to **30 minutes** after the booked window may still unload, provided a dock\nis available.\n\nThe grace is the thirty minutes and the dock together. Neither carries the\ndelivery on its own. Beyond thirty minutes the grace does not apply — report it\nand wait for instruction rather than assuming the godown will take it.",
+          "score": 0.7021518108663835
+        },
+        {
+          "id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-004",
+          "customer_id": "customer-2",
+          "source_document": "standing-instructions.md",
+          "text": "## If the consignee is not available\n\n*Nobody there — shop is shut, no answer, who do I call, how long do I\nwait before I do something.*\n\nThe warehouse coordinator answers the goods entrance intercom. Ring it and\nreport the delivery. If nobody answers, report it to the office and wait for\ninstruction.",
+          "score": 0.7004337846457164
+        }
+      ],
+      "assessment": {
+        "confidence": 0.8943,
+        "risk": "HIGH",
+        "signals": {
+          "entity_resolution": 1.0,
+          "transcript_legible": 1.0,
+          "retrieval_score": 0.7213223625412103,
+          "self_rating": 0.82
+        },
+        "grounded_claims": [
+          {
+            "text": "കവാടം അടഞ്ഞിരുന്നാലും കാത്തിരിപ്പ് ക്ലോക്ക് ഓടും — ഇത് ഒരു പ്രത്യേക കേസ് അല്ല, ഡോക്കിൽ കാത്തിരിക്കുന്നതും ഗേറ്റിൽ കാത്തിരിക്കുന്നതും ഒരേ നിയമം.",
+            "cited_chunk_id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003"
+          },
+          {
+            "text": "60 മിനിറ്റ് ഫ്രീ ടൈം കഴിഞ്ഞാൽ മിനിറ്റിന് 150 പൈസ ഡിറ്റൻഷൻ ബാധകമാകും.",
+            "cited_chunk_id": "SOP-CUSTOMER-2-STANDING-INSTRUCTIONS-003"
+          }
+        ],
+        "rejected_claims": [],
+        "unclaimed_assertions": [],
+        "grounding_ran": true
+      }
+    },
+    {
+      "event_id": "absent-report",
+      "at": "2026-09-10T12:02:00+05:30",
+      "reply": {
+        "mode": "SPEAK_HEDGED",
+        "language": "ml",
+        "text": "ശരി, മനസ്സിലായി. ഡെലിവറി കൗണ്ടർ ഗേറ്റ് രണ്ടിന്റെ അടുത്താണ്. അവിടെ ചെന്ന് നോക്കൂ — സ്റ്റോഴ്സ് ക്ലർക്ക് അവിടെ ഉണ്ടാകണം. ആ കൗണ്ടറും ആളില്ലാതെ ഇരിക്കുകയാണെങ്കിൽ, ഓഫീസിനെ അറിയിക്കൂ, അവർ പറയുന്നത് കേൾക്കൂ. ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
+        "restated_facts": [
+          "സ്റ്റോപ്പ് 3 — Malabar Electrical Supplies",
+          "ഡെലിവറി വിൻഡോ 11:30 മുതൽ 13:00 വരെ",
+          "12:02-ന് CONSIGNEE_ABSENT എക്സെപ്ഷൻ തുറന്നു",
+          "കാത്തിരിപ്പ് 12:00 മുതൽ കണക്കാക്കുന്നു — ഇതുവരെ 2 മിനിറ്റ്",
+          "ഫ്രീ ടൈം 15 മിനിറ്റ് — ഇനിയും 13 മിനിറ്റ് ബാക്കിയുണ്ട്"
+        ],
+        "claims": [
+          {
+            "text": "ഈ അക്കൗണ്ടിലെ സ്റ്റോഴ്സ് ക്ലർക്ക് ഗേറ്റ് രണ്ടിന്റെ അടുത്തുള്ള ഡെലിവറി കൗണ്ടറിലാണ് ഉണ്ടാകേണ്ടത്; ആ കൗണ്ടർ ആളില്ലാതിരുന്നാൽ ഓഫീസിനെ അറിയിക്കണം.",
+            "cited_chunk_id": "SOP-CUSTOMER-3-STANDING-INSTRUCTIONS-004"
+          }
+        ],
+        "cited_sop_ids": [
+          "SOP-CUSTOMER-3-STANDING-INSTRUCTIONS-004"
+        ],
+        "audio_path": null
+      },
+      "chunks": [
+        {
+          "id": "SOP-CUSTOMER-3-STANDING-INSTRUCTIONS-004",
+          "customer_id": "customer-3",
+          "source_document": "standing-instructions.md",
+          "text": "## If the consignee is not available\n\n*Nobody there — shop is shut, no answer, who do I call, how long do I\nwait before I do something.*\n\nThe stores clerk is at the delivery counter beside gate two. Report it there.\nIf the counter is unattended, report it to the office and wait for instruction.",
+          "score": 0.7889127479687684
+        },
+        {
+          "id": "SOP-CUSTOMER-3-STANDING-INSTRUCTIONS-006",
+          "customer_id": "customer-3",
+          "source_document": "standing-instructions.md",
+          "text": "## Site contact\n\n*Who I call at this place.*\n\nStores clerk, delivery counter beside gate two.",
+          "score": 0.6802541779865987
+        },
+        {
+          "id": "SOP-CUSTOMER-3-STANDING-INSTRUCTIONS-001",
+          "customer_id": "customer-3",
+          "source_document": "standing-instructions.md",
+          "text": "## Delivery window\n\n*Booked time — I'm late, will they still take it, what happens if I\nmiss the slot, is there any grace.*\n\nDelivery at this account is **by appointment only**, and there is **no\nlate-arrival grace**. A vehicle that misses its appointment has missed the\ndelivery, whether or not the site is open when it gets there.\n\nThe distinction matters at this account: notice does not buy time here. Nothing\nrecovers a missed appointment at the site. It goes back to the office for a new\none.",
+          "score": 0.6731048822402954
+        }
+      ],
+      "assessment": {
+        "confidence": 0.9112,
+        "risk": "HIGH",
+        "signals": {
+          "entity_resolution": 1.0,
+          "transcript_legible": 1.0,
+          "retrieval_score": 0.7889127479687684,
+          "self_rating": 0.82
+        },
+        "grounded_claims": [
+          {
+            "text": "ഈ അക്കൗണ്ടിലെ സ്റ്റോഴ്സ് ക്ലർക്ക് ഗേറ്റ് രണ്ടിന്റെ അടുത്തുള്ള ഡെലിവറി കൗണ്ടറിലാണ് ഉണ്ടാകേണ്ടത്; ആ കൗണ്ടർ ആളില്ലാതിരുന്നാൽ ഓഫീസിനെ അറിയിക്കണം.",
+            "cited_chunk_id": "SOP-CUSTOMER-3-STANDING-INSTRUCTIONS-004"
+          }
+        ],
+        "rejected_claims": [],
+        "unclaimed_assertions": [],
+        "grounding_ran": true
+      }
+    },
+    {
+      "event_id": "system-DRIVER_SILENT-trip-1-1789027920",
+      "at": "2026-09-10T13:42:00+05:30",
+      "reply": {
+        "mode": "SPEAK_HEDGED",
+        "language": "ml",
+        "text": "ഹലോ, ഞാൻ സാരഥിയാണ്. ഇപ്പോൾ സമയം 1 മണി 42 മിനിറ്റ് ആണ്. നിങ്ങളുടെ ലൊക്കേഷൻ ഞങ്ങൾക്ക് കിട്ടുന്നില്ല. എവിടെ ആണ് ഇപ്പോൾ? എന്തെങ്കിലും പ്രശ്നം ഉണ്ടോ? ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
+        "restated_facts": [
+          "ഇപ്പോൾ സമയം 13:42 ആണ്",
+          "ഈ ചെക്ക്-ഇൻ സിസ്റ്റം ഓട്ടോമാറ്റിക്കായി ഉണ്ടാക്കിയതാണ്, ഡ്രൈവർ ഒന്നും പറഞ്ഞിട്ടില്ല",
+          "ഇപ്പോൾ ഏത് സ്റ്റോപ്പ് ആണ് എന്ന് ഞങ്ങൾക്ക് അറിയില്ല"
+        ],
+        "claims": [],
+        "cited_sop_ids": [],
+        "audio_path": null
+      },
+      "chunks": [],
+      "assessment": {
+        "confidence": 0.63,
+        "risk": "LOW",
+        "signals": {
+          "entity_resolution": 1.0,
+          "transcript_legible": 1.0,
+          "retrieval_score": 0.0,
+          "self_rating": 0.4
+        },
+        "grounded_claims": [],
+        "rejected_claims": [],
+        "unclaimed_assertions": [],
+        "grounding_ran": true
+      }
+    },
+    {
+      "event_id": "system-STOP_OVERDUE-stop-4-1789029960",
+      "at": "2026-09-10T14:16:00+05:30",
+      "reply": {
+        "mode": "SPEAK_HEDGED",
+        "language": "ml",
+        "text": "ശരി, നാലാമത്തെ സ്റ്റോപ്പ് — Periyar Wholesale Foods. ഡെലിവറി വിൻഡോ 13:30 മുതൽ 15:00 വരെ. 14:16-ന് STOP_OVERDUE ഫ്ലാഗ് വന്നിട്ടുണ്ട്. ഈ കസ്റ്റമറുടെ നിയമങ്ങൾ ഇപ്പോൾ എന്റെ കൈയിലില്ല, അത് നോക്കേണ്ടതുണ്ട്. ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
+        "restated_facts": [
+          "സ്റ്റോപ്പ് 4 — Periyar Wholesale Foods",
+          "ഡെലിവറി വിൻഡോ: 13:30 മുതൽ 15:00 വരെ",
+          "STOP_OVERDUE ഫ്ലാഗ് 14:16-ന് തുറന്നു, ഇപ്പോഴും ഓപ്പൺ ആണ്",
+          "സ്റ്റോപ്പ് സ്റ്റാറ്റസ്: EN_ROUTE"
+        ],
+        "claims": [],
+        "cited_sop_ids": [],
+        "audio_path": null
+      },
+      "chunks": [],
+      "assessment": {
+        "confidence": 0.66,
+        "risk": "HIGH",
+        "signals": {
+          "entity_resolution": 1.0,
+          "transcript_legible": 1.0,
+          "retrieval_score": 0.0,
+          "self_rating": 0.55
+        },
+        "grounded_claims": [],
+        "rejected_claims": [],
+        "unclaimed_assertions": [],
+        "grounding_ran": true
+      }
+    }
+  ]
+}

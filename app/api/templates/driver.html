@@ -1,15 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Your day · Sarathi{% endblock %}
+{% block title %}Today’s trip · Sarathi{% endblock %}
 {% block body_class %}driver-page{% endblock %}
 {% block content %}
 <main id="main" class="driver-shell">
-  <div class="driver-intro"><p class="eyebrow">A little help along the way</p><h1>You tell us.<br>We keep it straight.</h1><p>Your words. Your record. The rules, within reach.</p></div>
-  <div class="phone">
-    <header class="phone-header"><div><span class="eyebrow">TODAY’S TRIP</span><h2>Here with you.</h2></div><span class="sun-mark" aria-hidden="true">✳</span></header>
-    {% include "partials/composer.html" %}
-    {% include "partials/driver_updates.html" %}
-    <footer class="phone-footer">Your record is yours to see.</footer>
-  </div>
-  <p class="driver-footnote">Text in Malayalam, English, or a mix.</p>
+  <header class="screen-heading"><h1>Today’s trip</h1><span>One trip · {{ state.stops | length }} stops</span></header>
+  {% include "partials/composer.html" %}
+  {% include "partials/driver_updates.html" %}
 </main>
 {% endblock %}

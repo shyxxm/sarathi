@@ -1,13 +1,8 @@
 <section id="composer" class="composer" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
-  <form action="/driver/messages" method="post" hx-post="/driver/messages" hx-target="#composer" hx-swap="outerHTML"
-        hx-sync="this:drop" hx-disabled-elt="find button" hx-indicator="#sending">
-    <label for="driver-text">What’s happening?</label>
-    <p id="message-help" class="muted">Tell me where you’ve reached or what you need.</p>
-    <textarea id="driver-text" name="text" rows="3" maxlength="2000" required aria-describedby="message-help"
-              placeholder="The gate is still closed. I’ve been waiting about an hour…">{{ typed_text }}</textarea>
-    <input type="hidden" name="message_id" value="{{ message_id }}">
-    <button class="send-button" type="submit"><span>Send to Sarathi</span><span aria-hidden="true">↗</span></button>
-    <p id="sending" class="htmx-indicator muted" role="status">Reading your message and checking the reply…</p>
+  <form action="/driver/messages" method="post" hx-post="/driver/messages" hx-target="#composer" hx-swap="outerHTML" hx-sync="this:drop" hx-disabled-elt="find button" hx-indicator="#sending">
+    <div class="section-label"><label for="driver-text">Message Sarathi</label><span id="message-help">Malayalam, English, or a mix</span></div>
+    <div class="compose-row"><textarea id="driver-text" name="text" rows="2" maxlength="2000" required aria-describedby="message-help" placeholder="What’s happening at your stop?">{{ typed_text }}</textarea><input type="hidden" name="message_id" value="{{ message_id }}"><button class="send-button" type="submit">Send to Sarathi <span aria-hidden="true">↗</span></button></div>
+    <p id="sending" class="htmx-indicator muted" role="status">Interpreting → retrieving rules → checking reply…</p>
   </form>
   {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
 </section>

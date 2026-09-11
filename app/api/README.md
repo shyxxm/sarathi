@@ -4,25 +4,32 @@ Run from the repository root:
 uv run uvicorn app.api.main:app --reload
 ```
 
-Open `/driver` for typed reports and `/dispatcher` for the board. The current
-demo starts at 11:13, at the seeded gate closure. Advance its paused clock with
-`+1 min` or `+15 min`. The 08:00–18:00 slider is an independent, read-only replay
-of the existing fixtures. It never rewinds submitted reports or approvals.
+`/driver` shows the last message, reply, expandable cited claims, and this shift's
+complete record. `/dispatcher` starts at 11:13. The clock slider, playback, and
+moment links replay 08:00–18:00 without changing submitted reports or approvals.
+Playback pauses briefly at key events, including the watchdog firings at 13:42
+and 14:16. Current-shift `+1 min` / `+15 min` runs the watchdog on live state.
 
-Replay needs no model or database. Typed reports use `LITELLM_MODEL_CHEAP`.
-Exceptions and questions also use the strong model, embedding settings and
-indexed Postgres SOPs from `.env.example` (`uv run python scripts/index_sops.py`).
-“Check reply & rules” runs the responder, critic and router for an open exception
-and puts the result on both surfaces. Fixture events show “Not assessed” until
-an actual check runs in the current shift.
+Replay loads real responder and critic outputs from
+`app/data/seed/replay_assessments.json`, captured against the seeded SOP index.
+These are labelled captured model checks; interpretation is fixture-provided.
+The fixture checksum prevents attaching captures to a changed event sequence.
+No model or database is needed to view replay. To refresh captures with the
+configured models and indexed SOP database:
 
-This M4 demo holds reports, reply source snapshots and approvals in one process.
-Use one worker; restarting resets them. Approval records a review and never sends
-a customer message. It does not approve a resolution or write a precedent.
+```sh
+uv run python scripts/capture_replay_assessments.py
+```
 
-There is no map, driver list, ranking or per-driver history. Exceptions belong
-to trips and stops; the driver's record covers this shift only.
+Typed reports use `LITELLM_MODEL_CHEAP`. Exceptions, questions, and “Run live
+safety check” also use the strong model, embedding settings, and indexed
+Postgres SOPs from `.env.example`. Live checks replace the card assessment and
+update the driver's reply. Every exception exposes its opening input, retrieved
+passages, routing signals, decision, and action audit in its reasoning trace.
+
+This demo holds reports and approvals in one process. Use one worker; restarting
+resets them. Customer approval records a review and never sends a message,
+approves a resolution, or writes precedent. There is no map, driver list,
+ranking, or per-driver history.
 
 htmx 2.0.10 is vendored under `static/vendor` with its Zero-Clause BSD licence.
-The remaining assets are one hand-written stylesheet and a small script for
-source disclosure, preserving disclosures during polling, and clock labels.

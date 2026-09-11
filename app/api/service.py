@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cached_property
 import json
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ from app.agents import responder, router, safety_critic
 from app.contracts.decision import ActionType, Decision, DecisionAction
 from app.contracts.enums import EventType, Intent, Language, ReplyMode
 from app.contracts.event import InterpreterOutput, OperationalEvent
-from app.contracts.reply import DriverReply
+from app.contracts.reply import Claim, DriverReply
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
 from app.domain import detention, exception_rules, identity, resolution, watchdog
 from app.domain.state_machine import FINISHED, Rejected, TripState, apply
@@ -76,6 +77,9 @@ class Exchange:
     reply: DriverReply
     chunks: tuple[RetrievedChunk, ...] = ()
     assessment: safety_critic.Assessment | None = None
+    interpretation: InterpreterOutput | None = None
+    retrieval: RetrievalResult | None = None
+    origin: str = "live"
 
 
 @dataclass
@@ -115,6 +119,45 @@ class ShiftService:
         self._queue_drafts()
 
     @cached_property
+    def captured_exchanges(self) -> dict[str, Exchange]:
+        path = ROOT / "data/seed/replay_assessments.json"
+        if not path.exists():
+            return {}
+        payload = json.loads(path.read_text())
+        digest = hashlib.sha256((ROOT / "eval/fixtures/fixture_events.json").read_bytes()).hexdigest()
+        if payload["fixture_sha256"] != digest:
+            return {}
+        result = {}
+        for row in payload["exchanges"]:
+            values = row["assessment"]
+            values["grounded_claims"] = tuple(Claim.model_validate(c) for c in values["grounded_claims"])
+            values["rejected_claims"] = tuple((Claim.model_validate(c), why) for c, why in values["rejected_claims"])
+            values["unclaimed_assertions"] = tuple(values["unclaimed_assertions"])
+            result[row["event_id"]] = Exchange(
+                row["event_id"], datetime.fromisoformat(row["at"]), None,
+                DriverReply.model_validate(row["reply"]),
+                tuple(RetrievedChunk.model_validate(c) for c in row["chunks"]),
+                safety_critic.Assessment(**values), origin="captured replay",
+            )
+        return result
+
+    def recorded_exchanges(self, state):
+        result = []
+        for event in state.events:
+            captured = self.captured_exchanges.get(event.id)
+            if captured:
+                result.append(Exchange(event.id, captured.at, event.raw_transcript,
+                                       captured.reply, captured.chunks, captured.assessment,
+                                       origin=captured.origin))
+            else:
+                facts = event_facts(state, event)
+                result.append(Exchange(event.id, event.ingested_at, event.raw_transcript,
+                                       DriverReply(mode=ReplyMode.SPEAK, language=Language.EN,
+                                                   text=" ".join(facts), restated_facts=facts),
+                                       origin="state read-back"))
+        return result
+
+    @cached_property
     def snapshots(self) -> tuple[TripState, ...]:
         scheduled = defaultdict(list)
         for event in self.fixtures:
@@ -128,6 +171,20 @@ class ShiftService:
                     raise ValueError(f"Invalid fixture {event.id}: {outcome.reason}")
             for event in watchdog.tick(state, now):
                 state, _ = record(state, event, now)
+            for exception in state.exceptions:
+                captured = self.captured_exchanges.get(exception.opening_event_id)
+                if captured and exception.opened_at == now:
+                    assessment = captured.assessment
+                    state = state.with_exceptions([exception.model_copy(update={
+                        "confidence": assessment.confidence, "risk": assessment.risk,
+                        "reply_mode": captured.reply.mode, "driver_informed": True,
+                        "decision": (Decision(actions=[DecisionAction(type=ActionType.DRAFT_CUSTOMER_MESSAGE)],
+                                             rationale="Ask the customer for the next step; a dispatcher must review the draft.")
+                                     if exception.stop_id else None),
+                        "audit": [*exception.audit, {"action": "REPLY", "at": now.isoformat(),
+                                  "exchange_id": captured.id, "signals": assessment.signals,
+                                  "grounding_ran": assessment.grounding_ran}],
+                    })])
             state = state.with_exceptions(resolution.expire_open(state, now))
             snapshots.append(state)
         return tuple(snapshots)
@@ -260,7 +317,7 @@ class ShiftService:
         return Exchange(event.id, now, event.raw_transcript,
                         router.route(draft, assessment, understood=understood,
                                      language=state.driver_language),
-                        context.sop_chunks, assessment)
+                        context.sop_chunks, assessment, understood, retrieval)
 
     def submit(self, text: str, message_id: str):
         with self.lock:
@@ -396,7 +453,7 @@ class ShiftService:
         except Exception:
             raise MessageUnavailable("The reply could not be checked. Check the configured models and indexed SOPs, then try again.") from None
         exchange = Exchange(str(uuid4()), now, exchange.transcript, exchange.reply,
-                            exchange.chunks, exchange.assessment)
+                            exchange.chunks, exchange.assessment, understood, exchange.retrieval)
         with self.lock:
             if revision != self.revision:
                 raise MessageUnavailable("The shift changed during the check. Please try again.")

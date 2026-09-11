@@ -1,20 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Dispatcher · Sarathi{% endblock %}
+{% block title %}Shift control · Sarathi{% endblock %}
 {% block body_class %}dispatcher-page{% endblock %}
 {% block content %}
 <main id="main" class="dispatcher-shell">
-  <header class="board-heading"><div><p class="eyebrow">A hand where it’s needed</p><h1>The day’s exceptions.</h1><p>One trip. Five stops. A clear next step.</p></div><span class="shift-date">{{ state.shift_start.strftime('%d September %Y') }}<br><small>08:00–18:00 · IST</small></span></header>
-  <section class="replay-control" aria-labelledby="replay-title">
-    <div><h2 id="replay-title">Replay the shift</h2><p>Move through the recorded day. The current shift stays intact.</p></div>
-    <form action="/dispatcher" method="get" hx-get="/dispatcher/board" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:queue last" hx-trigger="change, submit">
-      <label for="replay-minute">Replay time <output id="replay-time" for="replay-minute">{{ now.strftime('%H:%M') }}</output></label>
-      <input id="replay-minute" type="range" name="minute" min="0" max="600" step="1" value="{{ minute }}" aria-valuetext="{{ now.strftime('%H:%M') }}">
-      <div class="range-labels" aria-hidden="true"><span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span><span>16:00</span><span>18:00</span></div>
-      <noscript><button type="submit">Replay this time</button></noscript>
-    </form>
-    <a class="button secondary" href="/dispatcher" hx-get="/dispatcher/board" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:queue last">Current shift ↗</a>
+  <header class="screen-heading"><h1>Shift control</h1><span>{{ state.shift_start.strftime('%d %b %Y') }} · {{ state.stops | length }} stops · 08:00–18:00 IST</span></header>
+  <section class="shift-control" aria-label="Shift clock">
+    <div class="clock-readout"><output id="replay-time" for="replay-minute">{{ now.strftime('%H:%M') }}</output><span id="clock-state">{{ 'REPLAY' if replay else 'CURRENT SHIFT' }}</span><button id="play-shift" type="button" aria-label="Play shift replay" aria-pressed="false">▶ Play shift</button></div>
+    <div class="clock-track">
+      <form id="replay-form" action="/dispatcher" method="get" hx-get="/dispatcher/board" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:replace" hx-trigger="change, submit">
+        <label class="sr-only" for="replay-minute">Replay time</label>
+        <input id="replay-minute" type="range" name="minute" min="0" max="600" step="1" value="{{ minute }}" aria-valuetext="{{ now.strftime('%H:%M') }}">
+        <div class="range-labels" aria-hidden="true"><span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span><span>16:00</span><span>18:00</span></div>
+        <noscript><button type="submit">Replay this time</button></noscript>
+      </form>
+      <div class="clock-landmarks" aria-label="Shift moments">
+        {% for value, time, label, system in [(133,'10:13','Gate closed',false),(194,'11:14','Gate resolved',false),(342,'13:42','Silence check-in',true),(376,'14:16','Stop overdue',true),(390,'14:30','Driver replies',false)] %}<a href="/dispatcher?minute={{ value }}" hx-get="/dispatcher/board?minute={{ value }}" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:replace" class="landmark {{ 'system' if system else '' }}" data-minute="{{ value }}"><span>{{ '◇' if system else '·' }} {{ time }}</span>{{ label }}</a>{% endfor %}
+      </div>
+    </div>
+    <a class="button secondary current-shift" href="/dispatcher" hx-get="/dispatcher/board" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:replace">Current shift ↗</a>
   </section>
   {% include "partials/board.html" %}
-  <p class="demo-note">In-memory demo · current shift starts at 11:13 · restart resets reports and reviews · replay uses fixtures and makes no model calls.</p>
 </main>
 {% endblock %}

@@ -75,7 +75,8 @@ def test_surfaces_and_no_audio_capture(client):
     assert all(name in html for name in ["NEEDS ATTENTION", "HANDLED", "RUNNING FINE"])
     assert 'min="0" max="600"' in html
     assert "System-observed wait" in html and "Driver-claimed wait" in html
-    assert "Not assessed" in html and "Model self-rating" in html
+    assert "Not assessed" not in html and "Model self-rating" in html
+    assert "Captured model check" in html and "Weakest: SOP retrieval" in html
     assert client.get("/static/vendor/htmx.min.js").status_code == 200
 
 
@@ -322,3 +323,48 @@ def test_the_office_line_is_said_once_on_the_fallback_path(client, service, monk
     text = service.exchanges[-1].reply.text
     assert service.exchanges[-1].reply.mode is ReplyMode.ESCALATE
     assert text.lower().count("office") == 1
+
+
+def test_replay_critics_are_captured_checks_with_real_weighted_signals(service):
+    for minute in (133, 242, 342, 376, 390, 600):
+        values = context(service, minute=minute)
+        for card in values['attention'] + values['handled']:
+            assessment = card['assessment']
+            assert assessment is not None and assessment.grounding_ran
+            assert assessment.confidence == safety_critic.weighted_confidence(assessment.signals)
+            assert card['exception'].confidence == assessment.confidence
+            assert card['exchange'].origin == 'captured replay'
+            assert card['assessed_at'] <= values['now']
+            assert card['weakest_key'] == min(assessment.signals, key=assessment.signals.get)
+    assert not context(service, minute=132)['attention']
+
+
+def test_watchdog_cards_appear_without_driver_input_and_then_resolve(client, service):
+    before = service.state
+    for before_minute, minute, kind in [(341, 342, EventType.DRIVER_SILENT),
+                                      (375, 376, EventType.STOP_OVERDUE)]:
+        old = service.replay(before_minute)
+        new = service.replay(minute)
+        assert old.last_driver_event() == new.last_driver_event()
+        assert not any(ex.exception_type is kind for ex in old.exceptions)
+        card = next(card for card in context(service, minute=minute)['attention']
+                    if card['exception'].exception_type is kind)
+        assert card['opening'].source == 'system'
+        assert card['opening'].raw_transcript is None
+        html = client.get(f'/dispatcher?minute={minute}').text
+        assert 'Watchdog · no driver message' in html
+        assert 'Reasoning trace' in html and 'Clock rule; no transcript' in html
+    after = context(service, minute=390)
+    assert not after['attention']
+    assert len(after['handled']) == 4
+    assert service.state is before
+
+
+def test_driver_seed_shows_last_message_answer_sources_and_complete_record(client, service):
+    html = client.get('/driver').text
+    assert service.state.last_driver_event().raw_transcript in html
+    assert 'CITED CLAIMS' in html and 'View source' in html
+    assert 'FACTS' in html
+    for event in service.state.events:
+        assert event.ingested_at.strftime('%H:%M') in html
+    assert 'You tell us' not in html and 'eyebrow' not in html
