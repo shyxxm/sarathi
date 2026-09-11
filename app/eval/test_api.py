@@ -431,6 +431,20 @@ def test_one_trace_per_message_tagged_with_what_finds_it(client, service, monkey
     assert root.trace_io["output"] == reply.reply.text
 
 
+def test_the_context_gives_the_responder_no_internal_names_to_copy(client, service, monkeypatch):
+    """Sonnet spoke "GATE_CLOSED exception … open ആണ്" to a driver, copied from
+    the enum values its context handed it. Facts read to a driver never carry
+    them, so the context has none to copy."""
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED)
+    contexts = capture_context(monkeypatch)
+    stub_rules(monkeypatch, service)
+    post(client, "gate ippozhum adachirikkuva")
+    rendered = contexts[-1].render()
+    assert responder.INTERNAL_NAMES.findall(rendered) == []
+    assert "The gate is closed" in rendered and "arrived, unloading not started" in rendered
+    assert "exception" not in rendered and "status" not in rendered
+
+
 @pytest.mark.parametrize("broken", ["exploding", "brittle"])
 def test_a_broken_langfuse_changes_nothing(monkeypatch, broken_langfuse, broken):
     """SPEC 7.1: traces are best effort, never load bearing. The same message

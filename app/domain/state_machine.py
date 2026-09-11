@@ -219,6 +219,29 @@ STATUS_PHRASE: Mapping[StopStatus, str] = {
     StopStatus.REATTEMPT_SCHEDULED: "waiting for a reattempt",
 }
 
+# What each event is called anywhere a driver can read or hear it: his record,
+# the board, and the responder's context. Never the enum name — Sonnet copied
+# "GATE_CLOSED exception … open" out of its context into a spoken fact.
+EVENT_WORDS: Mapping[EventType, str] = {
+    EventType.DEPARTED: "You set off",
+    EventType.ARRIVED_STOP: "You arrived",
+    EventType.SERVICE_STARTED: "Unloading started",
+    EventType.STOP_COMPLETED: "Delivery completed",
+    EventType.GATE_CLOSED: "The gate is closed",
+    EventType.CONSIGNEE_ABSENT: "Nobody is there to receive the delivery",
+    EventType.VEHICLE_BREAKDOWN: "The vehicle has broken down",
+    EventType.DOCUMENT_ISSUE: "There is a problem with the paperwork",
+    EventType.SHORTAGE_OR_DAMAGE: "A shortage or damage was reported",
+    EventType.DELIVERY_REFUSED: "The delivery was refused",
+    EventType.ACKNOWLEDGEMENT: "Your message was received",
+    EventType.UNCLEAR: "Your message needs clarification",
+    EventType.STOP_OVERDUE: "We checked whether you need help reaching the stop",
+    EventType.DRIVER_SILENT: "Everything alright? Need anything?",
+    EventType.WINDOW_AT_RISK: "The delivery window may be missed",
+    EventType.DETENTION_CROSSED: "The recorded wait passed the free allowance",
+    EventType.REATTEMPT_SCHEDULED: "Another delivery attempt was scheduled",
+}
+
 EVENT_PHRASE: Mapping[EventType, str] = {
     EventType.ARRIVED_STOP: "you have reached it",
     EventType.SERVICE_STARTED: "unloading has started",

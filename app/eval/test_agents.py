@@ -1,5 +1,6 @@
 """Node 5 and node 6, with the model call stubbed. No network, no clock."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -301,6 +302,27 @@ def test_responder_cannot_cite_a_chunk_it_was_not_shown():
     )
     with pytest.raises(ResponderError, match="not retrieved"):
         parse_reply(payload, context)
+
+
+@pytest.mark.parametrize("where", ["text", "restated_facts", "claims"])
+def test_responder_cannot_speak_an_internal_name(where):
+    """Facts read to a driver never carry enum names. Sonnet spoke "GATE_CLOSED
+    exception … open ആണ്"; a draft like that is refused, not spoken."""
+    context = ResponderContext(
+        now=None, transcript="x", language=Language.ML, intents=(Intent.REPORT,),
+        event_type=EventType.GATE_CLOSED, question_text=None,
+        driver_claimed_wait_minutes=None, stop=None, customer=None, detention=None,
+        exception=None, sop_chunks=(chunk(),), precedents=(),
+    )
+    leak = "GATE_CLOSED exception 10:13 മുതൽ open ആണ്"
+    draft = {"language": "ml", "text": "ഗേറ്റ് അടച്ചിരിക്കുന്നു", "confidence": 0.9,
+             "restated_facts": ["ഗേറ്റ് 10:13 മുതൽ അടച്ചിരിക്കുന്നു"], "claims": []}
+    if where == "claims":
+        draft["claims"] = [{"text": leak, "cited_chunk_id": chunk().id}]
+    else:
+        draft[where] = [leak] if where == "restated_facts" else leak
+    with pytest.raises(ResponderError, match="Internal names.*GATE_CLOSED"):
+        parse_reply(json.dumps(draft, ensure_ascii=False), context)
 
 
 def test_responder_cannot_route_itself():

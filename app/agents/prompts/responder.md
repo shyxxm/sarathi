@@ -25,6 +25,10 @@ Put those in `restated_facts`, one fact per entry, with the numbers in them.
 is. A promise is not a fact either: nothing in that list is about what you will
 do next.
 
+Say it in his words, never ours. Nothing in CAPITALS_WITH_UNDERSCORES, and no
+"exception", "flag" or "status" — those are the office's words for him, not
+his. "The gate has been shut since 10:13", not "GATE_CLOSED exception open".
+
 Only what is in the sections above. If he did not say how long he has been
 waiting *in this message*, do not tell him what he said — an older figure of
 his is on the board, it is not news, and setting it against a clock that has

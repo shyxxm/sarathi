@@ -17,21 +17,46 @@ from functools import cache
 import json
 import os
 from pathlib import Path
+import re
 import textwrap
 import time
 
 from pydantic import ValidationError
 
 from app import tracing
-from app.contracts.enums import EventType, Intent, Language
+from app.contracts.enums import (EventType, ExceptionStatus, Intent, Language, ReplyMode,
+                                 ResolutionStatus, StopStatus)
 from app.contracts.event import InterpreterOutput
 from app.contracts.exception import OperationalException
 from app.contracts.reply import ResponderOutput
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
 from app.domain.detention import Detention
-from app.domain.state_machine import CustomerTerms, StopState
+from app.domain.state_machine import EVENT_WORDS, STATUS_PHRASE, CustomerTerms, StopState
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "responder.md"
+
+# The context is written in the words he would use, because the responder
+# copies it into what he hears almost verbatim. It spoke "GATE_CLOSED exception
+# … open ആണ്" and "STOP_OVERDUE ഫ്ലാഗ്" to a driver, lifted from enum values here.
+INTENT_WORDS = {
+    Intent.REPORT: "he reported something",
+    Intent.QUESTION: "he asked a question",
+    Intent.CORRECTION: "he is correcting what we recorded",
+    Intent.CHITCHAT: "nothing to record",
+}
+STANDING_WORDS = {
+    ExceptionStatus.OPEN: "still open",
+    ExceptionStatus.ACTING: "the office is acting on it",
+    ExceptionStatus.MONITORING: "the office is watching it",
+    ExceptionStatus.RESOLVED: "sorted",
+    ExceptionStatus.EXPIRED: "closed without being sorted",
+}
+# Every internal name a draft could carry into a sentence he hears. Refused in
+# `_parse`, not only kept out of the context: the context is one way it gets
+# there, and the model's own habits are another.
+INTERNAL_NAMES = re.compile(r"\b(" + "|".join(sorted(
+    {member.value for enum in (EventType, StopStatus, ExceptionStatus, Intent, ReplyMode, ResolutionStatus)
+     for member in enum}, key=len, reverse=True)) + r")\b")
 
 
 class ResponderError(RuntimeError):
@@ -104,8 +129,9 @@ class ResponderContext:
         lines = ["## What the driver said", ""]
         lines.append(f'transcript: "{self.transcript}"' if self.transcript
                      else "transcript: (none — this is a system-raised check-in)")
-        lines.append(f"understood as: {', '.join(i.value for i in self.intents)}"
-                     f" / {self.event_type.value if self.event_type else 'no event — he asked, he did not report'}")
+        happened = (EVENT_WORDS[self.event_type] if self.event_type
+                    else "no event — he asked, he did not report")
+        lines.append(f"understood as: {'; '.join(INTENT_WORDS[i] for i in self.intents)} — {happened}")
         if self.question_text:
             lines.append(f"he asked: \"{self.question_text}\"")
         if self.driver_claimed_wait_minutes is not None:
@@ -120,13 +146,13 @@ class ResponderContext:
         lines = [
             "", "## Where he is", "",
             f"stop {self.stop.seq} of the day — {self.customer.name}",
-            f"stop status: {self.stop.status.value}",
+            f"at this stop now: {STATUS_PHRASE[self.stop.status]}",
             f"delivery window: {self.stop.window_open:%H:%M}–{self.stop.window_close:%H:%M}",
         ]
         if self.exception is not None:
             lines.append(
-                f"open exception: {self.exception.exception_type.value} "
-                f"since {self.exception.opened_at:%H:%M} ({self.exception.status.value})")
+                f"open at this stop since {self.exception.opened_at:%H:%M}: "
+                f"{EVENT_WORDS[self.exception.exception_type]} ({STANDING_WORDS[self.exception.status]})")
         return "\n".join(lines)
 
     def _clock(self) -> str:
@@ -293,4 +319,11 @@ def _parse(content: str, context: ResponderContext) -> ResponderOutput:
     invented = sorted({claim.cited_chunk_id for claim in output.claims} - available)
     if invented:
         raise ResponderError(f"Claims cite chunks that were not retrieved: {invented}")
+
+    # Facts read to a driver never carry enum names. A draft that does is not
+    # spoken; the reply escalates with his facts in plain words instead.
+    heard = " ".join([output.text, *output.restated_facts, *(claim.text for claim in output.claims)])
+    leaked = sorted(set(INTERNAL_NAMES.findall(heard)))
+    if leaked:
+        raise ResponderError(f"Internal names in what he would hear: {leaked}")
     return output

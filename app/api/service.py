@@ -18,31 +18,11 @@ from app.contracts.event import InterpreterOutput, OperationalEvent
 from app.contracts.reply import Claim, DriverReply
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
 from app.domain import detention, exception_rules, identity, resolution, watchdog
-from app.domain.state_machine import FINISHED, Rejected, TripState, apply
+from app.domain.state_machine import EVENT_WORDS, FINISHED, Rejected, TripState, apply
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = logging.getLogger(__name__)
 MINUTE = timedelta(minutes=1)
-
-EVENT_WORDS = {
-    EventType.DEPARTED: "You set off",
-    EventType.ARRIVED_STOP: "You arrived",
-    EventType.SERVICE_STARTED: "Unloading started",
-    EventType.STOP_COMPLETED: "Delivery completed",
-    EventType.GATE_CLOSED: "The gate is closed",
-    EventType.CONSIGNEE_ABSENT: "Nobody is there to receive the delivery",
-    EventType.VEHICLE_BREAKDOWN: "The vehicle has broken down",
-    EventType.DOCUMENT_ISSUE: "There is a problem with the paperwork",
-    EventType.SHORTAGE_OR_DAMAGE: "A shortage or damage was reported",
-    EventType.DELIVERY_REFUSED: "The delivery was refused",
-    EventType.ACKNOWLEDGEMENT: "Your message was received",
-    EventType.UNCLEAR: "Your message needs clarification",
-    EventType.STOP_OVERDUE: "We checked whether you need help reaching the stop",
-    EventType.DRIVER_SILENT: "Everything alright? Need anything?",
-    EventType.WINDOW_AT_RISK: "The delivery window may be missed",
-    EventType.DETENTION_CROSSED: "The recorded wait passed the free allowance",
-    EventType.REATTEMPT_SCHEDULED: "Another delivery attempt was scheduled",
-}
 
 
 def event_facts(state: TripState, event: OperationalEvent) -> list[str]:
@@ -539,6 +519,10 @@ class ShiftService:
             try:
                 exchange = self._answer(state, event, understood, now)
             except Exception:
+                # The dispatcher sees the short sentence; the cause goes to the
+                # log. `from None` alone hid a refused draft behind "check the
+                # configured models".
+                LOG.warning("Live safety check failed for %s", exception_id, exc_info=True)
                 raise MessageUnavailable("The reply could not be checked. Check the configured models and indexed SOPs, then try again.") from None
             _trace_route(trace, exchange, "a dispatcher ran a live safety check", state, exception.stop_id)
         exchange = Exchange(check_id, now, exchange.transcript, exchange.reply,
