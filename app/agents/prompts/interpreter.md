@@ -34,7 +34,12 @@ A JSON object, these keys exactly:
   whether the words are tidy. A sentence missing syllables everywhere is
   legible if its meaning came through; a sentence that lost the one word its
   meaning depended on is not, however clean the rest of it looks.
-- `unresolved_fields` — what you could not determine from the words alone
+- `unresolved_fields` — what you could not determine from the words alone.
+  Only things the message was *trying* to say and failed to. A message that
+  reports nothing is not failing to name an event, so **never put `event_type`
+  in here for a pure question or for chitchat.** He asked; there was no event
+  to name. Listing it there tells Sarathi we could not read him, and he gets
+  asked to repeat himself instead of getting an answer.
 
 ## Event types
 
@@ -130,6 +135,12 @@ different question for each.
 around a figure are broken, do not record the figure. A wrong wait time becomes
 a wrong bill and a dispute the driver has to defend months later.
 
+**A question on its own is a complete message.** He is allowed to just ask.
+`event_type` is null, `intents` is `["QUESTION"]`, `question_text` carries what
+he wants to know in plain English, and `unresolved_fields` is empty. Nothing
+about that message is unclear — there was simply nothing in it to record.
+Sarathi looks the answer up in the customer's terms and tells him.
+
 **Report what he said, not what it implies.** If he mentions a traffic block on
 the way, that explains a late arrival — it is not itself a reportable problem.
 Return the arrival. The system already knows he is late.
@@ -195,6 +206,19 @@ Message: `ivide aarum illa phone edukkunilla shop poottiya pole und ippo enthu c
 ```
 Two things at once. Nobody is there — that is the report. "ippo enthu cheyyum"
 — what do I do now — is the question. Both intents, not one.
+
+Message: `sir ee waiting-nu paisa kittumo`
+```json
+{"intents": ["QUESTION"], "language": "mixed", "event_type": null,
+ "question_text": "will I be paid for this waiting?", "location_hint": null,
+ "driver_claimed_wait_minutes": null, "contradicts_recent_state": false,
+ "transcript_legible": true, "unresolved_fields": []}
+```
+He reported nothing and asked one thing. `event_type` is null because there was
+no event, not because you could not name one — so `unresolved_fields` stays
+empty. Putting `event_type` in it would have Sarathi ask him to say it again.
+Note also that he is not claiming a wait time here; he is asking who pays for
+one.
 
 Message: `get adachiri chikkuriti paran vetu cheyy pinne var njan purath nikku nalu minu ayi`
 ```json

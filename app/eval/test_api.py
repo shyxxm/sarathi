@@ -7,6 +7,7 @@ from app.agents import responder, safety_critic
 from app.api.main import create_app
 from app.api.service import MessageUnavailable, ShiftService, waiting_at
 from app.api.views import context
+from app.domain import detention
 from app.contracts.enums import EventType, Intent, Language, ReplyMode
 from app.contracts.event import InterpreterOutput
 from app.contracts.reply import Claim, ResponderOutput
@@ -24,9 +25,24 @@ def client(service):
         yield client
 
 
-def interpret_as(monkeypatch, service, event_type, **kwargs):
+def interpret_as(monkeypatch, service, event_type, intents=(Intent.REPORT,), **kwargs):
     monkeypatch.setattr(service, "interpret", lambda text: InterpreterOutput(
-        intents=[Intent.REPORT], language=Language.EN, event_type=event_type, **kwargs))
+        intents=list(intents), language=Language.EN, event_type=event_type, **kwargs))
+
+
+def capture_context(monkeypatch):
+    """The exact text the responder was handed. It is the artefact you inspect
+    when a reply comes out wrong, so it is what these assert against."""
+    rendered = []
+    original = responder.assemble
+
+    def recording(**kwargs):
+        context = original(**kwargs)
+        rendered.append(context)
+        return context
+
+    monkeypatch.setattr(responder, "assemble", recording)
+    return rendered
 
 
 def post(client, text, message_id=None, *, htmx=True):
@@ -221,3 +237,88 @@ def test_clock_change_during_model_call_cannot_commit_stale_report(service, monk
         service.submit("Unloading now.", str(uuid4()))
     assert service.state.stop("stop-2").status.value == "ARRIVED"
     assert not service.exchanges
+
+
+def test_a_question_with_no_event_reaches_the_rules_instead_of_a_human(client, service, monkeypatch):
+    """SPEC 1: a question takes the right-hand branch. It has no event in it,
+    and a message with no event is not a message we failed to read.
+
+    This escalated every question a driver could ask. The interpreter had it
+    right every time — intents QUESTION, question_text populated, transcript
+    legible — and the single word `event_type` in `unresolved_fields` sent it
+    to a human as illegible.
+    """
+    interpret_as(monkeypatch, service, None, intents=[Intent.QUESTION],
+                 question_text="how much free waiting time do I have here?",
+                 unresolved_fields=["event_type"])
+    contexts = capture_context(monkeypatch)
+    stub_rules(monkeypatch, service)
+    before = service.state.stop("stop-2").status
+
+    post(client, "how much free waiting time do I have here")
+
+    reply = service.exchanges[-1].reply
+    assert reply.mode is not ReplyMode.ESCALATE
+    assert "could not make out" not in reply.text
+    # It reached retrieval, and the responder was told what he actually asked.
+    assert contexts and "how much free waiting time" in contexts[-1].render()
+    assert reply.cited_sop_ids == ["SOP-TEST-001"]
+    # Asking is not progress. Nothing moved, and no UNCLEAR was recorded.
+    assert service.state.events[-1].event_type is EventType.ACKNOWLEDGEMENT
+    assert service.state.stop("stop-2").status is before
+
+
+def test_an_illegible_question_is_still_escalated(client, service, monkeypatch):
+    """The other half of it. We drop `event_type` because there was no event to
+    name — not because nothing can be unreadable any more."""
+    interpret_as(monkeypatch, service, None, intents=[Intent.QUESTION],
+                 transcript_legible=False, unresolved_fields=["event_type"])
+    post(client, "ipp entho cheyth")
+    assert service.exchanges[-1].reply.mode is ReplyMode.ESCALATE
+
+
+def test_an_older_claimed_wait_is_not_read_back_as_a_fresh_one(client, service, monkeypatch):
+    """He said eight minutes at 10:20. It is 11:13 and this message has no
+    number in it, so "you say 8, we count 61" is not a discrepancy to surface —
+    it is 53 minutes of elapsed time reported as a disagreement."""
+    assert detention.claimed_wait_minutes(service.state, "stop-2") == 8
+    interpret_as(monkeypatch, service, None, intents=[Intent.QUESTION],
+                 question_text="when can I leave?")
+    contexts = capture_context(monkeypatch)
+    stub_rules(monkeypatch, service)
+
+    post(client, "sir enthu cheyyanam")
+
+    rendered = contexts[-1].render()
+    assert "he claims" not in rendered
+    assert "do not read it back to him" in rendered
+    # Still the stop's figure for the board and the ledger, which is where
+    # SPEC 4.2 puts it.
+    assert waiting_at(service.state, "stop-2", service.now).driver_claimed_wait_minutes == 8
+    assert "8<small> min" in client.get("/dispatcher").text
+
+
+def test_the_reply_speaks_the_seeded_language_not_the_messages(client, service, monkeypatch):
+    """His language comes from his record. One romanised transcript read as
+    Hindi had a Malayalam speaker answered in three scripts at once."""
+    assert service.state.driver_language is Language.ML
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED)   # message read as English
+    contexts = capture_context(monkeypatch)
+    stub_rules(monkeypatch, service)
+
+    post(client, "gate ippozhum adachirikkuva")
+
+    assert "Write in ml" in contexts[-1].render()
+    assert service.exchanges[-1].reply.language is Language.ML
+
+
+def test_the_office_line_is_said_once_on_the_fallback_path(client, service, monkeypatch):
+    """`_fallback` wrote its own "I've flagged this for the office" on top of an
+    issue line that already said the office needed to check. It goes through the
+    router's wording now, like every other escalation."""
+    monkeypatch.setattr(service, "interpret", lambda text: InterpreterOutput(
+        intents=[Intent.REPORT], language=Language.EN, transcript_legible=False))
+    post(client, "sdkjfh skdjfh")
+    text = service.exchanges[-1].reply.text
+    assert service.exchanges[-1].reply.mode is ReplyMode.ESCALATE
+    assert text.lower().count("office") == 1

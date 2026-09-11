@@ -20,6 +20,10 @@ class Detention:
     detention_rate_paise_per_min: int
     exposure_paise: int
     driver_claimed_wait_minutes: int | None = None
+    # When he said it. A claim without its time gets set against a running
+    # count and reads as a disagreement it is not: "he says 8, we count 61"
+    # is one number from 10:20 and one from 11:13.
+    driver_claimed_at: datetime | None = None
 
     @property
     def crossed(self) -> bool:
@@ -67,13 +71,24 @@ def wait_ended_at(state: TripState, stop_id: str) -> datetime | None:
     return min(ends, default=None)
 
 
+def latest_claim(state: TripState, stop_id: str) -> OperationalEvent | None:
+    """The last message at this stop in which he said how long he had waited.
+
+    The event rather than the number, because the number is only half of it:
+    a figure he gave an hour ago is not a claim about now, and whatever reads
+    it has to be able to tell the difference.
+    """
+    return next(
+        (event for event in reversed(state.events_at(stop_id))
+         if event.source == "driver" and event.driver_claimed_wait_minutes is not None),
+        None,
+    )
+
+
 def claimed_wait_minutes(state: TripState, stop_id: str) -> int | None:
     """What the driver said he waited. Stored, spoken back, never billed from."""
-    claims = [
-        event.driver_claimed_wait_minutes for event in state.events_at(stop_id)
-        if event.source == "driver" and event.driver_claimed_wait_minutes is not None
-    ]
-    return claims[-1] if claims else None
+    claim = latest_claim(state, stop_id)
+    return claim.driver_claimed_wait_minutes if claim else None
 
 
 def compute(state: TripState, stop_id: str, now: datetime) -> Detention | None:
@@ -87,6 +102,7 @@ def compute(state: TripState, stop_id: str, now: datetime) -> Detention | None:
         return None
 
     customer = state.customer_for(stop_id)
+    claim = latest_claim(state, stop_id)
     observed_wait = max(0, int((now - observed_from).total_seconds() // 60))
     billable_minutes = max(0, observed_wait - customer.free_detention_minutes)
     return Detention(
@@ -98,7 +114,8 @@ def compute(state: TripState, stop_id: str, now: datetime) -> Detention | None:
         billable_minutes=billable_minutes,
         detention_rate_paise_per_min=customer.detention_rate_paise_per_min,
         exposure_paise=billable_minutes * customer.detention_rate_paise_per_min,
-        driver_claimed_wait_minutes=claimed_wait_minutes(state, stop_id),
+        driver_claimed_wait_minutes=claim.driver_claimed_wait_minutes if claim else None,
+        driver_claimed_at=claim.ingested_at if claim else None,
     )
 
 

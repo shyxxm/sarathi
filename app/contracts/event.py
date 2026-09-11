@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.contracts.enums import EventType, Intent, Language
+
+EVENT_TYPE = "event_type"
 
 
 class InterpreterOutput(BaseModel):
@@ -26,6 +28,35 @@ class InterpreterOutput(BaseModel):
     contradicts_recent_state: bool = False
     transcript_legible: bool = True
     unresolved_fields: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _an_unnamed_event_is_only_unresolved_if_he_was_reporting(cls, data):
+        """A message that reports nothing has no event to name, so a null
+        `event_type` there is the answer and not a failure to find one.
+
+        Enforced on the contract because two separate places read this field
+        and both of them escalate on it — the clarification branch in
+        `ShiftService.submit`, and `entity_resolution` in the safety critic.
+        A driver asking *how much free waiting time do I have here* was told
+        his message needed clarification and routed to a human, with the
+        question correctly understood the whole way. SPEC 1 sends a question
+        past the state machine, not past the pipeline.
+
+        Only when the words arrived whole: a transcript we could not read is
+        still unreadable, and `transcript_legible` escalates it on its own.
+        """
+        if not isinstance(data, dict):
+            return data
+        unresolved = data.get("unresolved_fields")
+        intents = data.get("intents") or []
+        if not unresolved or EVENT_TYPE not in unresolved:
+            return data
+        if Intent.REPORT in [Intent(intent) for intent in intents]:
+            return data
+        if not data.get("transcript_legible", True):
+            return data
+        return data | {"unresolved_fields": [f for f in unresolved if f != EVENT_TYPE]}
 
 
 class OperationalEvent(BaseModel):

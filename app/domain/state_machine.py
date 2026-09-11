@@ -10,7 +10,7 @@ from datetime import datetime, time
 
 from pydantic import BaseModel, ConfigDict
 
-from app.contracts.enums import EventType, StopStatus
+from app.contracts.enums import EventType, Language, StopStatus
 from app.contracts.event import OperationalEvent
 from app.contracts.exception import OperationalException
 
@@ -67,20 +67,32 @@ class TripState(BaseModel):
     events: tuple[OperationalEvent, ...] = ()
     exceptions: tuple[OperationalException, ...] = ()
 
+    # The language he is spoken to in. His, from the driver record — not the
+    # language of the message in front of us. One message is a bad witness:
+    # romanised Malayalam reads as Hindi often enough that a per-message guess
+    # had Sarathi answering a Malayalam speaker in three scripts at once.
+    driver_language: Language = Language.EN
+
     @classmethod
     def build(
         cls,
         trip: Mapping,
         stops: Iterable[Mapping],
         customers: Iterable[Mapping],
+        drivers: Iterable[Mapping] = (),
         events: Iterable[OperationalEvent] = (),
         exceptions: Iterable[OperationalException] = (),
     ) -> "TripState":
         """From plain rows — repository dicts or seed JSON. No I/O here."""
+        driver = next((row for row in drivers if row["id"] == trip["driver_id"]), None)
         return cls(
             trip_id=trip["id"],
             driver_id=trip["driver_id"],
             vehicle_id=trip["vehicle_id"],
+            # No driver row means we do not know his language. English is what
+            # the built-in strings are written in, so it is the honest default
+            # rather than a guess at his.
+            driver_language=Language(driver["preferred_language"]) if driver else Language.EN,
             shift_start=trip["shift_start"],
             shift_end=trip["shift_end"],
             stops=tuple(sorted(

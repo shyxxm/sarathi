@@ -213,7 +213,8 @@ def test_unresolved_entity_escalates_however_confident():
 def test_an_acknowledgement_with_no_claims_still_speaks():
     """SPEC 5: `no SOP cited` attaches to claims. A reply that asserts nothing
     about the rules needs no citation, or every arrival on the shift escalates."""
-    reply = router.route(draft(), assessment(0.9), understood=UNDERSTOOD)
+    reply = router.route(draft(), assessment(0.9), understood=UNDERSTOOD,
+                         language=Language.EN)
     assert reply.mode is ReplyMode.SPEAK
     assert reply.cited_sop_ids == []
     assert reply.text == "Gate closed at stop 2, noted."
@@ -227,29 +228,49 @@ def test_escalation_does_not_speak_the_drafted_text():
     )
     reply = router.route(
         draft([CLAIM], text="Gate closed. Your free waiting time here is 60 minutes."),
-        rejected, understood=UNDERSTOOD,
+        rejected, understood=UNDERSTOOD, language=Language.EN,
     )
     assert reply.mode is ReplyMode.ESCALATE
     assert "60 minutes" not in reply.text
     assert reply.claims == [] and reply.cited_sop_ids == []
     # It still speaks, and it still hands the facts back. SPEC 5, §2.
     assert "Gate closed at stop 2" in reply.text
-    assert "someone is looking at it now" in reply.text.lower()
+    assert "someone at the office is checking" in reply.text.lower()
 
 
-def test_escalation_speaks_the_drivers_language():
-    malayalam = draft()
-    reply = router.route(
-        ResponderOutput(**(malayalam.model_dump() | {"language": Language.ML})),
-        assessment(0.2), understood=UNDERSTOOD,
-    )
+def test_the_office_line_is_said_once():
+    """It was written at three independent points — by the responder in its own
+    text, and twice over by the escalation template — and the driver heard it
+    three times in one breath. The router is the only one that says it now."""
+    wordy = draft(text="Gate closed. I'm checking with the office about that.")
+    escalated = router.route(wordy, assessment(0.2), understood=UNDERSTOOD,
+                             language=Language.EN)
+    assert escalated.text.lower().count("office") == 1
+    # The drafted sentence is gone with the rest of the draft, not merely
+    # deduplicated out of it.
+    assert "I'm checking with the office" not in escalated.text
+
+    hedged = router.route(draft([CLAIM]), assessment(0.6, grounded_claims=(CLAIM,)),
+                          understood=UNDERSTOOD, language=Language.EN)
+    assert hedged.text.lower().count("office") == 1
+
+
+def test_the_reply_speaks_the_drivers_language_not_the_drafts():
+    """SPEC 3.4: the router assembles. `draft.language` is the model's report
+    of what it thinks it wrote — a Malayalam speaker got a Hindi closing line
+    off the back of one romanised transcript."""
+    mislabelled = ResponderOutput(**(draft().model_dump() | {"language": Language.HI}))
+    reply = router.route(mislabelled, assessment(0.2), understood=UNDERSTOOD,
+                         language=Language.ML)
     assert reply.mode is ReplyMode.ESCALATE
+    assert reply.language is Language.ML
     assert "ഓഫീസ" in reply.text
+    assert "ऑफिस" not in reply.text
 
 
 def test_hedged_reply_keeps_the_draft_and_says_it_is_confirming():
     reply = router.route(draft([CLAIM]), assessment(0.6, grounded_claims=(CLAIM,)),
-                         understood=UNDERSTOOD)
+                         understood=UNDERSTOOD, language=Language.EN)
     assert reply.mode is ReplyMode.SPEAK_HEDGED
     assert reply.text.startswith("Gate closed at stop 2, noted.")
     assert "office" in reply.text
@@ -258,7 +279,7 @@ def test_hedged_reply_keeps_the_draft_and_says_it_is_confirming():
 
 def test_every_reply_restates_and_citations_track_claims():
     reply = router.route(draft([CLAIM]), assessment(0.9, grounded_claims=(CLAIM,)),
-                         understood=UNDERSTOOD)
+                         understood=UNDERSTOOD, language=Language.EN)
     assert reply.restated_facts
     assert reply.cited_sop_ids == [claim.cited_chunk_id for claim in reply.claims]
     with pytest.raises(ValidationError, match="does not match the chunks"):
@@ -293,3 +314,37 @@ def test_responder_cannot_route_itself():
                '"confidence": 0.9, "mode": "SPEAK"}')
     with pytest.raises(ResponderError, match="Bad shape"):
         parse_reply(payload, context)
+
+
+# --- interpreter boundary ----------------------------------------------------
+
+def test_a_question_with_no_event_has_nothing_unresolved():
+    """SPEC 3.2, enforced on the contract because two separate readers escalate
+    on this field. A driver who only asks something has not failed to report."""
+    asked = InterpreterOutput(
+        intents=[Intent.QUESTION], language=Language.ML, event_type=None,
+        question_text="how long may I wait here?", unresolved_fields=["event_type"],
+    )
+    assert asked.unresolved_fields == []
+    assert router.mode_for(assessment(0.9), understood=asked) is ReplyMode.SPEAK
+
+
+def test_an_unnamed_event_on_a_report_is_still_unresolved():
+    """The narrow version of the rule. He was reporting something and we could
+    not name it; that is exactly what the field is for."""
+    reported = InterpreterOutput(
+        intents=[Intent.REPORT], language=Language.EN, event_type=EventType.UNCLEAR,
+        unresolved_fields=["event_type"],
+    )
+    assert reported.unresolved_fields == ["event_type"]
+    assert router.mode_for(assessment(0.9), understood=reported) is ReplyMode.ESCALATE
+
+
+def test_an_illegible_question_keeps_its_unresolved_event():
+    """We drop it because there was no event to name, not because a transcript
+    can no longer be unreadable."""
+    garbled = InterpreterOutput(
+        intents=[Intent.QUESTION], language=Language.MIXED,
+        transcript_legible=False, unresolved_fields=["event_type"],
+    )
+    assert garbled.unresolved_fields == ["event_type"]

@@ -72,6 +72,10 @@ class ResponderContext:
 
     now: datetime
     transcript: str | None
+    # The driver's own language, from his record. Not the language of this
+    # message: one message is a bad witness, and a per-message guess had a
+    # Malayalam speaker answered in Hindi because romanised Malayalam looks
+    # like it. Code decides this, the same way code decides `mode`.
     language: Language
     intents: tuple[Intent, ...]
     event_type: EventType | None
@@ -99,9 +103,8 @@ class ResponderContext:
         lines = ["## What the driver said", ""]
         lines.append(f'transcript: "{self.transcript}"' if self.transcript
                      else "transcript: (none — this is a system-raised check-in)")
-        lines.append(f"language: {self.language.value}")
         lines.append(f"understood as: {', '.join(i.value for i in self.intents)}"
-                     f" / {self.event_type.value if self.event_type else 'UNCLEAR'}")
+                     f" / {self.event_type.value if self.event_type else 'no event — he asked, he did not report'}")
         if self.question_text:
             lines.append(f"he asked: \"{self.question_text}\"")
         if self.driver_claimed_wait_minutes is not None:
@@ -147,11 +150,22 @@ class ResponderContext:
         else:
             remaining = waiting.free_detention_minutes - waiting.observed_wait_minutes
             lines.append(f"still inside free time — {_minutes(remaining)} left before it counts")
-        if waiting.driver_claimed_wait_minutes is not None:
+        # Only a figure from the message in front of us. `waiting` carries the
+        # stop's last claim, which is the right thing for the ledger and the
+        # dispatcher card and the wrong thing to read back: an hour later,
+        # "he claims 8, we counted 61" is not a discrepancy to surface, it is
+        # 53 minutes of elapsed time being reported as a disagreement with a
+        # driver who said nothing. SPEC 4.2's read-back is of this message.
+        if self.driver_claimed_wait_minutes is not None:
             lines.append(
-                f"he claims {_minutes(waiting.driver_claimed_wait_minutes)}; "
+                f"he claims {_minutes(self.driver_claimed_wait_minutes)}; "
                 f"we counted {_minutes(waiting.observed_wait_minutes)}. "
                 f"Say both if they differ.")
+        elif waiting.driver_claimed_at is not None:
+            lines.append(
+                f"(he last gave us a figure at {waiting.driver_claimed_at:%H:%M} and has not "
+                f"repeated it. He did not mention waiting in this message — do not read it "
+                f"back to him as though he had.)")
         return "\n".join(lines)
 
     def _rules(self) -> str:
@@ -172,7 +186,12 @@ class ResponderContext:
     def _task(self) -> str:
         return "\n".join([
             "", "## Now write the reply", "",
-            f"It is {self.now:%H:%M}. Reply in {self.language.value}.",
+            f"It is {self.now:%H:%M}.",
+            f"Write in {self.language.value}. That is the language he is spoken to in, "
+            f"and it may not be the language of the message above. `text` and every "
+            f"entry in `restated_facts` are both read out to him, so both are in "
+            f"{self.language.value} — not one in each.",
+            f'Set `language` to "{self.language.value}".',
             "Return JSON only, in the shape the system prompt gives.",
         ])
 
@@ -182,6 +201,7 @@ def assemble(
     now: datetime,
     understood: InterpreterOutput,
     transcript: str | None,
+    language: Language,
     stop: StopState | None,
     customer: CustomerTerms | None,
     retrieval: RetrievalResult,
@@ -191,6 +211,10 @@ def assemble(
     """Build the context. No I/O, no model call — assembled by the caller from
     what code already resolved.
 
+    `language` is the driver's, from his record, and it is a separate argument
+    from `understood` on purpose: `understood.language` is what one noisy
+    transcript looked like, which is not who we are talking to.
+
     `retrieval.cited_sop_chunks` rather than `retrieval.sop_chunks`: a chunk
     that did not clear the floor is not shown to the responder at all. Handing
     it over and asking it not to cite it would put §5.1's decision back inside
@@ -199,7 +223,7 @@ def assemble(
     return ResponderContext(
         now=now,
         transcript=transcript,
-        language=understood.language,
+        language=language,
         intents=tuple(understood.intents),
         event_type=understood.event_type,
         question_text=understood.question_text,

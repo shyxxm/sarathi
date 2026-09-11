@@ -92,6 +92,15 @@ def grade(case: dict, output) -> bool | None:
     expected_legible = case.get("expected_transcript_legible")
     if expected_legible is not None and output.transcript_legible is not expected_legible:
         return False
+
+    # Graded where the row states it, because this is what broke the question
+    # path: intents and event_type were right every time and a stray
+    # `event_type` in unresolved_fields escalated the message anyway. A score
+    # that ignores this field cannot see that failure at all.
+    expected_unresolved = case.get("expected_unresolved_fields")
+    if (expected_unresolved is not None
+            and sorted(output.unresolved_fields) != sorted(expected_unresolved)):
+        return False
     return (sorted(intent.value for intent in output.intents)
             == sorted(case["expected_intents"])
             and event == case["expected_event_type"])
@@ -111,12 +120,13 @@ def run_one(case: dict, model: str) -> dict:
         "got_legible": output.transcript_legible if output else None,
         "got_hint": output.location_hint if output else None,
         "got_claimed": output.driver_claimed_wait_minutes if output else None,
+        "got_unresolved": list(output.unresolved_fields) if output else [],
     }
 
 
 # What a cached row replays. Everything else comes from the golden file.
 RECORDED = ("ok", "error", "got_intents", "got_event", "got_legible",
-            "got_hint", "got_claimed")
+            "got_hint", "got_claimed", "got_unresolved")
 
 
 def tally(rows: list[dict]) -> str:
@@ -152,6 +162,9 @@ def show(title: str, rows: list[dict]) -> None:
             if row.get("expected_transcript_legible") is not None:
                 got += f" / legible={row['got_legible']}"
                 expected += f" / legible={row['expected_transcript_legible']}"
+            if row.get("expected_unresolved_fields") is not None:
+                got += f" / unresolved={'+'.join(row.get('got_unresolved') or []) or '-'}"
+                expected += f" / unresolved={'+'.join(row['expected_unresolved_fields']) or '-'}"
         mark = {True: "  ", False: "X ", None: "! "}[row["ok"]]
         print(f"{mark}{row['id']:<6}{row['text'][:48]:<50}{got:<50}{expected}")
 

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from app.contracts.enums import EventType, ExceptionStatus, StopStatus
+from app.contracts.enums import EventType, ExceptionStatus, Language, StopStatus
 from app.contracts.event import OperationalEvent
 from app.data.repository import SEED_DIRECTORY
 from app.domain import detention, exception_rules, identity, resolution, watchdog
@@ -20,7 +20,7 @@ def seed(name):
 @pytest.fixture
 def state():
     trip = seed("trips")[0]
-    return TripState.build(trip, trip["stops"], seed("customers"))
+    return TripState.build(trip, trip["stops"], seed("customers"), seed("drivers"))
 
 
 def at(hour, minute):
@@ -203,8 +203,30 @@ def test_detention_arithmetic(state):
     assert waiting.billable_minutes == 1
     assert waiting.exposure_paise == 150
     assert waiting.driver_claimed_wait_minutes == 40      # kept, never billed from
+    # And when he said it. A figure without its time gets set against a clock
+    # that has been running since and reads as a disagreement it is not.
+    assert waiting.driver_claimed_at == at(10, 30)
     assert detention.compute(at_stop_two(state), "stop-2", at(11, 0)).billable_minutes == 0
     assert detention.compute(at_stop_two(state), "stop-3", at(11, 31)) is None
+
+
+def test_a_stop_he_never_gave_a_figure_for_carries_no_claim(state):
+    state, _ = run(
+        state,
+        event(EventType.DEPARTED, at(8, 5), stop_id="stop-1"),
+        event(EventType.ARRIVED_STOP, at(9, 0), stop_id="stop-1"),
+    )
+    waiting = detention.compute(state, "stop-1", at(9, 30))
+    assert waiting.driver_claimed_wait_minutes is None
+    assert waiting.driver_claimed_at is None
+
+
+def test_the_driver_is_spoken_to_in_his_own_language(state):
+    """From the driver record, not from whatever one transcript looked like."""
+    assert state.driver_language is Language.ML
+    trip = seed("trips")[0]
+    unknown = TripState.build(trip, trip["stops"], seed("customers"))
+    assert unknown.driver_language is Language.EN
 
 
 def test_the_ledger_stops_the_clock_when_unloading_starts(state):

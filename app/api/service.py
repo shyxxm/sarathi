@@ -100,7 +100,8 @@ class ShiftService:
         seed = ROOT / "data" / "seed"
         trip = json.loads((seed / "trips.json").read_text())[0]
         customers = json.loads((seed / "customers.json").read_text())
-        self.initial = TripState.build(trip, trip["stops"], customers)
+        drivers = json.loads((seed / "drivers.json").read_text())
+        self.initial = TripState.build(trip, trip["stops"], customers, drivers)
         self.fixtures = tuple(OperationalEvent.model_validate(row) for row in json.loads(
             (ROOT / "eval" / "fixtures" / "fixture_events.json").read_text()))
         self.lock = RLock()
@@ -240,6 +241,7 @@ class ShiftService:
         retrieval = self.retrieve(state, understood, event)
         context = responder.assemble(
             now=now, understood=understood, transcript=event.raw_transcript, stop=stop,
+            language=state.driver_language,
             customer=state.customer_for(stop.id) if stop else None,
             retrieval=retrieval, detention=waiting_at(state, event.stop_id, now), exception=exception,
         )
@@ -254,7 +256,8 @@ class ShiftService:
         if not assessment.grounding_ran:
             raise MessageUnavailable("The safety check could not be completed")
         return Exchange(event.id, now, event.raw_transcript,
-                        router.route(draft, assessment, understood=understood),
+                        router.route(draft, assessment, understood=understood,
+                                     language=state.driver_language),
                         context.sop_chunks, assessment)
 
     def submit(self, text: str, message_id: str):
@@ -273,10 +276,18 @@ class ShiftService:
             except Exception:
                 LOG.warning("Interpreter unavailable", exc_info=False)
                 raise MessageUnavailable("I couldn't read your message just now. It has not been recorded. Please try again.") from None
+            # SPEC 1's two branches. A message that reports nothing is not
+            # operational progress, so it carries no event — and a message with
+            # no event in it has not failed to be understood. Decided before
+            # identity resolution rather than after, so the resolver is looking
+            # at the event type this message actually has.
+            reported = Intent.REPORT in understood.intents
+            event_type = (understood.event_type or EventType.UNCLEAR) if reported \
+                else EventType.ACKNOWLEDGEMENT
             event = identity.resolve(OperationalEvent(
                 id=f"message-{message_id}", source_message_id=message_id, source="driver",
                 occurred_at=now, ingested_at=now, raw_transcript=text,
-                event_type=understood.event_type or EventType.UNCLEAR,
+                event_type=event_type,
                 language=understood.language, location_hint=understood.location_hint,
                 driver_claimed_wait_minutes=understood.driver_claimed_wait_minutes,
                 unresolved_fields=list(understood.unresolved_fields),
@@ -287,14 +298,14 @@ class ShiftService:
             if (event.event_type is EventType.DEPARTED and last and not event.location_hint
                     and state.stop(last.stop_id) and state.stop(last.stop_id).status in FINISHED):
                 event = event.model_copy(update={"stop_id": last.stop_id})
+            # Each of these is a fact about the message and nothing else. The
+            # sentence saying a person is looking at it is added once, by the
+            # router, in `_fallback` — not here as well.
             issue = None
             if Intent.CORRECTION in understood.intents or understood.contradicts_recent_state:
-                issue = "You asked to correct the record. The office needs to check it; your earlier record is unchanged."
+                issue = "You asked to correct the record. Your earlier record is unchanged for now."
             elif event.unresolved_fields or not understood.transcript_legible:
-                issue = "Your message needs clarification. The office needs to check what happened and which stop it concerns."
-            elif Intent.REPORT not in understood.intents:
-                # Questions and chat are messages, never operational progress.
-                event = event.model_copy(update={"event_type": EventType.ACKNOWLEDGEMENT})
+                issue = "I could not make out what happened or which stop this is about."
             if issue:
                 event = event.model_copy(update={"event_type": EventType.UNCLEAR})
             updated, outcome = record(state, event, now)
@@ -337,9 +348,17 @@ class ShiftService:
                 self.pending_messages.discard(message_id)
 
     def _fallback(self, event, now, facts):
+        """Escalate without a model: the interpreter or the reply services are
+        down, or the message was not legible enough to act on.
+
+        Worded by the router, not here. Two places writing "I'll check with the
+        office" is how the driver came to hear it twice in one reply, and the
+        facts themselves are already English, so this speaks English rather
+        than wrapping English facts in his language.
+        """
         return Exchange(event.id, now, event.raw_transcript, DriverReply(
             mode=ReplyMode.ESCALATE, language=Language.EN, restated_facts=facts,
-            text=" ".join(facts) + " I've flagged this for the office to check.",
+            text=router.escalation_text(facts, Language.EN),
         ))
 
     def _save_exchange(self, exchange, stop_id):

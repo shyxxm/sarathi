@@ -74,10 +74,11 @@ def replay(
     """Fixtures precede watchdog evaluation at the same minute; no persistence."""
     trips = json.loads((seed_directory / "trips.json").read_text(encoding="utf-8"))
     customers = json.loads((seed_directory / "customers.json").read_text(encoding="utf-8"))
+    drivers = json.loads((seed_directory / "drivers.json").read_text(encoding="utf-8"))
     if len(trips) != 1:
         raise ValueError("The shift replay requires exactly one seeded trip")
     trip = trips[0]
-    state = TripState.build(trip, trip["stops"], customers)
+    state = TripState.build(trip, trip["stops"], customers, drivers)
     clock = SimulatedClock(state.shift_start, state.shift_end, step=ONE_MINUTE)
 
     scheduled: dict[datetime, list[OperationalEvent]] = defaultdict(list)

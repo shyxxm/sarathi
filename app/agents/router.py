@@ -9,6 +9,17 @@ from `claims` does not remove the sentence that made it from `text` — the draf
 still says the wrong thing. So when grounding rejects anything, the drafted
 text is not spoken at all. It is replaced by a reply built from
 `restated_facts`, which came from state and were never in question.
+
+**This module is the only place the follow-up line is written.** "Someone at
+the office is checking" is a statement about routing, and routing is decided
+here — so the responder is told not to write it, the escalation template says
+it once rather than twice, and `ShiftService._fallback` comes through
+`escalation_text` instead of appending its own. It was being added at three
+independent points and the driver heard it three times in one breath.
+
+The language is decided here too, by the caller, from the driver's record. The
+draft reports what language it thinks it used; that is the model's opinion of
+its own output and it is not what we key the spoken wrapper off.
 """
 
 from app.agents.safety_critic import Assessment
@@ -22,22 +33,26 @@ HEDGE_FLOOR = 0.5
 # ESCALATE still speaks. It never returns silence, and it never returns a bare
 # apology either — the driver gets his facts back plus the honest statement
 # that a person has it. Heard, not read: short, no filler, no "unfortunately".
+#
+# One closing sentence, not two. "I'm checking with the office" followed by
+# "someone is looking at it now" is the same sentence twice, and it was landing
+# on top of a draft that had already said it.
 ESCALATION: dict[Language, tuple[str, str]] = {
     Language.EN: (
         "Recorded: {facts}.",
-        "I'm checking the rest with the office. Someone is looking at it now.",
+        "Someone at the office is checking the rest now.",
     ),
     Language.ML: (
         "രേഖപ്പെടുത്തി: {facts}.",
-        "ബാക്കി ഓഫീസിൽ ചോദിക്കുന്നു. ഒരാൾ ഇത് നോക്കുന്നുണ്ട്.",
+        "ബാക്കി ഓഫീസിൽ ഒരാൾ നോക്കുന്നുണ്ട്.",
     ),
     Language.MIXED: (
         "രേഖപ്പെടുത്തി: {facts}.",
-        "ബാക്കി ഓഫീസിൽ ചോദിക്കുന്നു — someone is looking at it now.",
+        "ബാക്കി ഓഫീസിൽ ഒരാൾ check ചെയ്യുന്നുണ്ട്.",
     ),
     Language.HI: (
         "दर्ज कर लिया: {facts}.",
-        "बाकी ऑफिस से पूछ रहा हूँ. एक व्यक्ति इसे देख रहा है.",
+        "बाकी ऑफिस में एक व्यक्ति देख रहा है.",
     ),
 }
 
@@ -77,7 +92,14 @@ def mode_for(assessment: Assessment, *, understood: InterpreterOutput) -> ReplyM
     return ReplyMode.SPEAK_HEDGED
 
 
-def _escalation_text(facts: list[str], language: Language) -> str:
+def escalation_text(facts: list[str], language: Language) -> str:
+    """His facts back, then one sentence saying a person has it.
+
+    Public because `ShiftService` escalates too, when the interpreter or the
+    reply services are down. It used to word that itself, which is how the
+    office line ended up being said twice on the fallback path and three times
+    on the hedged one.
+    """
     opening, closing = ESCALATION.get(language, ESCALATION[Language.EN])
     return f"{opening.format(facts='; '.join(facts))} {closing}"
 
@@ -87,6 +109,7 @@ def route(
     assessment: Assessment,
     *,
     understood: InterpreterOutput,
+    language: Language,
     audio_path: str | None = None,
 ) -> DriverReply:
     """Assemble what actually gets spoken.
@@ -94,6 +117,12 @@ def route(
     Only claims that survived grounding reach the reply, and `cited_sop_ids` is
     derived from them, so the contract invariant in SPEC 3.4 holds by
     construction rather than by the caller remembering.
+
+    `language` is the driver's, passed in by the caller from his record. The
+    wrapper sentences are keyed off it rather than off `draft.language`, which
+    is the model's report of what it thinks it wrote — a draft that came back
+    labelled `hi` for a Malayalam speaker got a Hindi closing line stapled to
+    romanised Malayalam text, and the driver heard three scripts in one reply.
     """
     mode = mode_for(assessment, understood=understood)
     claims = assessment.grounded_claims
@@ -101,16 +130,16 @@ def route(
     if mode is ReplyMode.ESCALATE:
         # The draft may contain the very sentence grounding rejected, so none
         # of it is spoken. Facts survive: they never came from retrieval.
-        text = _escalation_text(draft.restated_facts, draft.language)
+        text = escalation_text(draft.restated_facts, language)
         claims = ()
     elif mode is ReplyMode.SPEAK_HEDGED:
-        text = f"{draft.text} {HEDGE.get(draft.language, HEDGE[Language.EN])}"
+        text = f"{draft.text} {HEDGE.get(language, HEDGE[Language.EN])}"
     else:
         text = draft.text
 
     return DriverReply(
         mode=mode,
-        language=draft.language,
+        language=language,
         text=text,
         restated_facts=draft.restated_facts,
         claims=list(claims),

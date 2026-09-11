@@ -84,6 +84,54 @@
     "degradation": "none"
   },
   {
+    "id": "m06q",
+    "occurred_at": "10:20",
+    "text": "sir ee waiting-nu paisa kittumo",
+    "expected_intents": [
+      "QUESTION"
+    ],
+    "expected_event_type": null,
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_unresolved_fields": [],
+    "in_prompt": true,
+    "degradation": "none",
+    "note": "A pure question. No event in it, and nothing unresolved either — event_type null is the answer, not a failure to find one."
+  },
+  {
+    "id": "m06q2",
+    "occurred_at": "10:22",
+    "text": "ivide ethra neram wait cheyyam",
+    "expected_intents": [
+      "QUESTION"
+    ],
+    "expected_event_type": null,
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_unresolved_fields": [],
+    "in_prompt": false,
+    "degradation": "none",
+    "note": "Held out. He asks what his free time is; the answer is in the customer's detention terms, so this has to reach retrieval."
+  },
+  {
+    "id": "m06q3",
+    "occurred_at": "10:24",
+    "text": "how much free waiting time do I have here",
+    "expected_intents": [
+      "QUESTION"
+    ],
+    "expected_event_type": null,
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_unresolved_fields": [],
+    "in_prompt": false,
+    "degradation": "none",
+    "note": "Held out, and in English. Same question as m06q2 — a QUESTION with event_type in unresolved_fields escalated both of these to a human and told the driver his message was illegible."
+  },
+  {
     "id": "m07",
     "occurred_at": "11:14",
     "text": "gate thurannu irakkan thudangi",
