@@ -772,17 +772,63 @@ customer-1   margin must be > +0.014  and < +0.174
 customer-2   margin must be > +0.015  and < +0.191
 customer-3   margin must be > -0.010  and < +0.148
 
-window       (+0.015, +0.148)        CITATION_MARGIN = 0.02, inside it
+window       (+0.015, +0.148)        one value now fits all three
 ```
 
 One value now separates all three customers, which no value could before. That
 is a repaired input, not a better threshold, and it changes nothing about where
 rule 7 is enforced.
 
-Worth recording against the next change: 0.02 sits 0.005 above the bottom of
-that window and 0.128 below the top. The bottom is the edge where noise gets
-cited and the top is the edge where real questions escalate, and SPEC 5 prefers
-the second. The margin is nearer the wrong edge than it looks.
+#### Where in that window, and what the choice costs
+
+`CITATION_MARGIN` is **0.05**. It was 0.02 until the window was measured, which
+put it 0.005 above the bottom and 0.128 below the top.
+
+**The two edges are not symmetric, so the middle of the range is the wrong
+place to sit.** Below the window a chunk that merely shares the driver's
+vocabulary gets cited and Sarathi tells him what his customer's terms are on
+that basis. Above it, a real question finds nothing, and he is told a person
+will find out — to someone who can actually answer him. SPEC 5 says which of
+those to prefer, in as many words: *a floor that is too high fails safe.* So
+the margin is set well clear of the bottom and leaves the slack at the top,
+where slack is cheap.
+
+At 0.05, remeasured on all three:
+
+```
+              baseline   floor   worst held-out   clearance   worst question   over floor
+customer-1      0.574    0.624       0.588          +0.036        0.748          +0.124
+customer-2      0.563    0.613       0.578          +0.035        0.753          +0.140
+customer-3      0.595    0.645       0.584          +0.061        0.743          +0.098
+```
+
+Every held-out probe excluded on every customer, every seeded question admitted
+on every customer, by 0.098 at the tightest.
+
+**What it costs is one real message, and it is the right one to lose.** The
+damaged transcript from §2 — `ivide aar illa pon edukkunil chaap pootti pol und
+ipp enthu cheyy`, the row that reads as *damaged, meaning intact* — scores
+0.594 to 0.607 and now clears no customer's floor, where at 0.02 it cleared two
+of three. Its clean counterpart scores 0.651 to 0.659 and still cites
+everywhere.
+
+```
+                                          customer-1  customer-2  customer-3
+clean     ivide aarum illa phone edu...      0.659       0.655       0.651
+damaged   ivide aar illa pon edukkunil...    0.607       0.594       0.599
+```
+
+Damage costs about 0.05 of similarity, which is exactly the gap this margin now
+spans. That is not a coincidence to design around — it is the honest shape of
+the problem. **A transcript we only half heard is a worse query, and a worse
+query is a worse reason to state someone's contractual terms back to him.**
+
+This does not contradict §2. §2 says a damaged transcript must still be *read*,
+and it still is: the interpreter reports the event, the state machine records
+it, and the driver gets his own facts back. What he does not get is a claim
+about what he is owed, sourced from a chunk retrieved on half a sentence. He is
+told Sarathi will find out. That is §2's mechanism working — the reply hedges
+rather than guessing — not an exception to it.
 
 #### The finding that survives
 
@@ -849,8 +895,18 @@ goodwill probe was scoring against. Tuning either number would have buried that
 under a threshold that appeared to work, and the next model change would have
 unburied it with no way to tell what had moved.
 
-Both numbers now stand on their own, and neither was touched to make it happen.
-The figures are in *Two things this dissolved*, above.
+Both numbers now stand on their own. The figures are in *Two things this
+dissolved*, above.
+
+The margin was raised afterwards, from 0.02 to 0.05, and that is a different
+act from the one being warned against here. It was not moved to rescue a case
+that was failing; it was moved because a window that had never been measurable
+before could finally be measured, and 0.02 turned out to sit at the wrong end
+of it. Tuning to make a test pass is fitting the calibration to its own test.
+Reading a distribution and placing a threshold in it on a stated safety
+preference is what the distribution is for. The test to apply is whether you
+would have to change the number back if the failing case were removed — here
+you would not.
 
 The rule that produced this outcome is worth keeping in exactly the form it was
 first written: **do not fit the calibration to its own test.** Applied twice —
@@ -869,14 +925,49 @@ evidence about itself.
   when a human has marked the resolution approved. An unreviewed decision must
   never become the justification for the next one.
 
+Retrieval query: see 6.1. Top-3 each.
+
+### 6.1 What goes in the query, and the rule that decides it
+
 **The retrieval query is the driver's words and nothing else** — his
 transcript, plus the interpreter's plain-English rendering of his question
 where he asked one. No ids, no timestamps, no stop fields, no event type, no
 intent. `customer_id` selects the corpus in SQL and is not embedded.
 
-That is narrower than it reads, and deliberately so: anything added to every
-query is also in every noise probe, so it raises the measured floor as fast as
-it raises a real question. §5.1 has what the previous version cost. Top-3 each.
+That is narrower than it reads, and it follows from something general enough to
+state on its own:
+
+> **Anything added to every query is also in every noise probe.** Constant text
+> raises the measured baseline exactly as fast as it raises a real question,
+> and pulls every query toward the same point in the space, compressing the
+> distance between them. A floor is `baseline + margin`. **Boilerplate spends
+> headroom and buys no discrimination.**
+
+This is not a remark about one bad field. It is a property of measuring a floor
+from probes that travel through the same builder as the queries — which is the
+only honest way to measure one, so the property is permanent. It holds for
+anything constant: a template, a system preamble, a role line, a units hint, a
+schema, a JSON envelope. It holds most treacherously for additions that are
+*individually sensible*, because those are the ones that get added.
+
+Two consequences worth naming, because neither is obvious from the rule:
+
+- **The cost is invisible in the usual check.** Adding a field and confirming
+  that real questions still score well is not evidence — the noise rose with
+  them. Nothing is learned without measuring the noise under the same change,
+  which is what `scripts/measure_margin.py` is for.
+- **A calibration measured through a different builder than production is not
+  a calibration.** If the probes and the live queries are assembled by
+  different code paths, the floor describes a system that is not running. §5.1
+  records what that cost here: real questions scoring under their own
+  customer's floor, and on customer-3, under its measured noise.
+
+The test for anything proposed for the query: **would it be in the query if a
+noise probe were the input?** If yes, it is boilerplate and it does not go in.
+The driver's words pass that test. The trip's timestamps do not.
+
+§5.1 has the measurements, including what the event type costs when it is added
+back — one short, defensible English phrase, about 0.04 of floor.
 
 ---
 

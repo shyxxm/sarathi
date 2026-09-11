@@ -49,19 +49,31 @@ NOISE_PROBES: tuple[str, ...] = (
 #
 # One value separates all three seeded customers, which was not true until the
 # query builder stopped embedding record ids and ISO timestamps beside the
-# driver's words. The window across the three is (+0.015, +0.148) and 0.02 sits
-# inside it: every held-out probe excluded, every real question admitted.
+# driver's words. The window across the three is (+0.015, +0.148): below it
+# held-out noise gets cited, above it real questions escalate.
 #
-# Note which edge it is near. The bottom of that window is where noise starts
-# getting cited and the top is where real questions start escalating; SPEC 5
-# prefers the second, and 0.02 is 0.005 from the first and 0.128 from the
-# second. Raising it is the safe direction if these numbers move.
+# It is set near neither end and deliberately above the middle of the risk, not
+# the middle of the range. The two edges are not symmetric — under-citing sends
+# a driver to a human who can answer him, over-citing tells him what his
+# customer's terms say on the strength of a chunk that happens to share his
+# vocabulary, and SPEC 5 says which of those to prefer. 0.05 leaves 0.035 of
+# clearance over the worst held-out probe and still admits every seeded
+# question by 0.098 at the tightest.
+#
+# What it costs is one real message, and it is the honest one to lose: the
+# damaged transcript from SPEC 2, `ivide aar illa pon edukkunil ...`, scores
+# 0.594-0.607 and now clears no customer's floor, where at 0.02 it cleared two.
+# Its clean counterpart scores 0.651-0.659 and still cites everywhere. Damage
+# costs about 0.05 of similarity, which is the gap this margin now spans — so
+# a transcript we half-heard no longer states the customer's terms back to the
+# driver. It still answers him from his own record and says it will check.
+# See SPEC 5.1.
 #
 # No value of this enforces rule 7. The ordering these numbers describe has
 # already inverted once, under nothing more than a wording change in a
 # document. That is why this filters the obvious cases and SPEC 5.1's
 # grounding check does the enforcing.
-CITATION_MARGIN = 0.02
+CITATION_MARGIN = 0.05
 
 
 class MissingBaseline(RuntimeError):
