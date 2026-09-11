@@ -59,6 +59,30 @@ Nodes 1, 3, 4, 5 are model calls. Everything between them is plain code.
 A message can be a report, a question, or both. *"Gate closed, can I leave?"*
 is both. The interpreter returns intent as a set, not a single value.
 
+### 1.1 Where the model boundary goes
+
+**A decision that looks like language work but is really a question about
+state belongs to code, and the model must not be the one answering it.** The
+test: *could the answer be wrong in a way that only our state would reveal?* If
+so, code answers it, and the model's contract has no field to put an answer in.
+
+Three times now:
+
+- **Identity (M2).** "rand mathe godown" reads like a place to interpret. Which
+  stop it is depends on where the trip is. `InterpreterOutput` has no `stop_id`,
+  so a model that guesses one fails validation (rule 3).
+- **The language he is spoken to in.** One romanised transcript looked like
+  Hindi, and a Malayalam speaker was answered in three scripts. The language he
+  speaks is a fact in his record; code passes it in and ignores the draft's own
+  label.
+- **Which figures are ours (§5.2).** Whether "13 minutes of free time left" is
+  a record or a claim about the customer's terms reads like a judgment about a
+  sentence. It is a question about where the figure came from, which only code
+  knows. The responder has no `restated_facts` field; code writes them.
+
+`mode` was built this way from the start (§5): a prompt that can name its own
+routing is a prompt deciding when to escalate.
+
 ---
 
 ## 2. The transcription problem, and why the reply solves it
@@ -415,10 +439,9 @@ class Claim:
     cited_chunk_id: str              # the chunk it rests on
 
 @dataclass
-class ResponderOutput:               # the model boundary. no mode.
+class ResponderOutput:               # the model boundary. no mode, no facts.
     language: Language
     text: str
-    restated_facts: list[str]
     claims: list[Claim]
     confidence: float                # §5 caps its weight at 0.20
 
@@ -427,7 +450,7 @@ class DriverReply:                   # what the router assembles
     mode: ReplyMode
     language: Language
     text: str                       # in the driver's language
-    restated_facts: list[str]        # what we understood — always populated
+    restated_facts: list[str]        # written by code from state — always populated
     claims: list[Claim]              # what survived grounding
     cited_sop_ids: list[str]         # derived from claims, never carried beside them
     audio_path: str | None = None
@@ -443,7 +466,8 @@ it rests on, and the critic checks them one at a time.
 
 The two lists are not the same kind of thing and only one of them is
 grounding's business. `restated_facts` comes from state — the stop, the event,
-the clock — and is checked by the driver himself when he hears it back (§2).
+the clock — is written by code, not the responder (§5.2), and is checked by the
+driver himself when he hears it back (§2).
 `claims` comes from retrieval, asserts what the customer's rules say, and is
 checked against the chunk text before it may be spoken. Facts are never
 grounded against a SOP and claims are never taken on trust.
@@ -1107,8 +1131,19 @@ Both causes are the bucket being a model's decision:
   drifts.
 
 Which bucket a figure belongs to is decided by where it came from, and only
-code knows that. **Not built yet:** the record facts have to come from code, not
-from either model, so that neither one chooses the bucket.
+code knows that — the pattern of §1.1. **Built, 11 September 2026:**
+`ResponderContext.record_facts()` writes the facts from what code resolved and
+computed. They are the reply's `restated_facts`, and they are what grounding is
+told we already knew. `ResponderOutput` has no `restated_facts` field, so the
+responder can neither put a figure in the records bucket nor leave one out; it
+says them back in `text`, and it makes claims. A record figure inside a claim is
+the responder ignoring its instructions, and grounding's existing refusal covers
+it.
+
+Code-written facts are in English, like every other fact code writes. An
+escalation speaks only facts, so it is in English too, rather than English facts
+inside a Malayalam wrapper. Malayalam templates for code-written facts would
+change that; that is a decision about driver-facing Malayalam, not made here.
 
 ---
 

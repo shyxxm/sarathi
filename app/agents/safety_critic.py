@@ -156,6 +156,7 @@ def ground(
     draft: ResponderOutput,
     chunks: tuple[RetrievedChunk, ...],
     *,
+    records: tuple[str, ...],
     model: str | None = None,
 ) -> GroundingOutput:
     """Ask whether each claim is actually in the passage it cites.
@@ -172,7 +173,7 @@ def ground(
     if missing:
         raise CriticError(f"Cannot check claims citing chunks not supplied: {missing}")
 
-    rendered, model = _render(draft, by_id), model or strong_model()
+    rendered, model = _render(draft, by_id, records), model or strong_model()
     with tracing.observe("grounding", as_type="generation", model=model, input=rendered) as call:
         response = _complete(rendered, model)
         content = response.choices[0].message.content or ""
@@ -186,13 +187,14 @@ def ground(
     return output
 
 
-def _render(draft: ResponderOutput, by_id: dict[str, RetrievedChunk]) -> str:
+def _render(draft: ResponderOutput, by_id: dict[str, RetrievedChunk], records: tuple[str, ...]) -> str:
     blocks = ["## The reply as drafted", "", draft.text, ""]
     # The checker is asked to ignore what came from our own records, so it has
-    # to be told what those are. Without this it reads "we have you arrived at
-    # 10:12" as an undeclared rule and escalates a reply that was correct.
-    blocks += ["## What we already knew (from our records, not from any SOP)", ""]
-    blocks += [f"- {fact}" for fact in draft.restated_facts]
+    # to be told what those are — by code, not by the reply. When this list was
+    # the responder's own `restated_facts`, grounding was asked to take a
+    # model's word for which figures were ours, and declined (SPEC 5.2).
+    blocks += ["## What we already knew (written by our system from its own records, not from any SOP)", ""]
+    blocks += [f"- {fact}" for fact in records]
     blocks += ["", "## Claims to check", ""]
     if not draft.claims:
         blocks += ["(the reply declares no claims — check the prose anyway)", ""]
@@ -264,6 +266,7 @@ def _assess(
     understood: InterpreterOutput,
     draft: ResponderOutput,
     chunks: tuple[RetrievedChunk, ...],
+    records: tuple[str, ...],
     retrieval_score: float,
     stt_confidence: float | None = None,
     cost_exposure_paise: int = 0,
@@ -284,7 +287,7 @@ def _assess(
     grounding_ran, rejected, grounded, unclaimed = True, [], [], ()
     pay_claim_present = False
     try:
-        verdicts = ground(draft, chunks, model=model).model_dump()
+        verdicts = ground(draft, chunks, records=records, model=model).model_dump()
     except CriticError:
         grounding_ran = False
         rejected = [(claim, "grounding check did not complete") for claim in draft.claims]

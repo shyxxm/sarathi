@@ -31,19 +31,20 @@ def chunk(text="Free waiting time: 60 minutes from arrival.", score=0.69):
 
 def draft(claims=(), confidence=0.9, text="Gate closed at stop 2, noted."):
     return ResponderOutput(
-        language=Language.EN, text=text,
-        restated_facts=["Gate closed at stop 2", "Waiting counted from 10:12"],
-        claims=list(claims), confidence=confidence,
+        language=Language.EN, text=text, claims=list(claims), confidence=confidence,
     )
 
 
 CLAIM = Claim(text="Free waiting time here is 60 minutes.", cited_chunk_id=CHUNK_ID)
+# What code writes from state (SPEC 5.2). The responder never supplies these.
+FACTS = ("Stop 2, Kochi Homeware Distributors: arrived, unloading not started.",
+         "Waiting counted from 10:12, when we recorded your arrival: 61 minutes so far.")
 
 
 def stub_grounding(monkeypatch, *verdicts, unclaimed=()):
     monkeypatch.setattr(
         safety_critic, "ground",
-        lambda drafted, chunks, model=None: GroundingOutput(
+        lambda drafted, chunks, records=(), model=None: GroundingOutput(
             verdicts=[Verdict(supported=s, affects_pay_or_liability=p, reason=r)
                       for s, p, r in verdicts],
             unclaimed_assertions=list(unclaimed),
@@ -116,7 +117,7 @@ def test_a_correction_is_always_high_risk():
 def test_supported_claim_survives_and_is_cited(monkeypatch):
     stub_grounding(monkeypatch, (True, True, "passage states 60 minutes"))
     assessment = safety_critic.assess(
-        understood=UNDERSTOOD, draft=draft([CLAIM]), chunks=(chunk(),),
+        understood=UNDERSTOOD, draft=draft([CLAIM]), chunks=(chunk(),), records=FACTS,
         retrieval_score=0.69,
     )
     assert assessment.grounded_claims == (CLAIM,)
@@ -130,7 +131,7 @@ def test_unsupported_claim_is_dropped_and_forces_escalation(monkeypatch):
     says nothing about what was claimed."""
     stub_grounding(monkeypatch, (False, True, "passage is about the delivery window"))
     assessment = safety_critic.assess(
-        understood=UNDERSTOOD, draft=draft([CLAIM]), chunks=(chunk(score=0.64),),
+        understood=UNDERSTOOD, draft=draft([CLAIM]), chunks=(chunk(score=0.64),), records=FACTS,
         retrieval_score=0.64,
     )
     assert assessment.grounded_claims == ()
@@ -144,7 +145,7 @@ def test_a_rule_stated_only_in_the_prose_is_caught(monkeypatch):
     rule and does not declare it as a claim."""
     stub_grounding(monkeypatch, unclaimed=["Your waiting time is being counted."])
     assessment = safety_critic.assess(
-        understood=UNDERSTOOD, draft=draft(), chunks=(chunk(),), retrieval_score=0.69,
+        understood=UNDERSTOOD, draft=draft(), chunks=(chunk(),), records=FACTS, retrieval_score=0.69,
     )
     assert assessment.unclaimed_assertions
     assert router.mode_for(assessment, understood=UNDERSTOOD) is ReplyMode.ESCALATE
@@ -156,7 +157,7 @@ def test_a_grounding_check_that_did_not_run_is_not_a_pass(monkeypatch):
 
     monkeypatch.setattr(safety_critic, "ground", explode)
     assessment = safety_critic.assess(
-        understood=UNDERSTOOD, draft=draft([CLAIM]), chunks=(chunk(),), retrieval_score=0.69,
+        understood=UNDERSTOOD, draft=draft([CLAIM]), chunks=(chunk(),), records=FACTS, retrieval_score=0.69,
     )
     assert assessment.grounding_ran is False
     assert assessment.grounded_claims == ()
@@ -166,7 +167,7 @@ def test_a_grounding_check_that_did_not_run_is_not_a_pass(monkeypatch):
 
 def test_grounding_refuses_to_check_a_claim_whose_chunk_was_not_supplied():
     with pytest.raises(CriticError, match="not supplied"):
-        safety_critic.ground(draft([CLAIM]), chunks=())
+        safety_critic.ground(draft([CLAIM]), chunks=(), records=FACTS)
 
 
 def test_a_claimless_reply_is_still_checked(monkeypatch):
@@ -181,9 +182,11 @@ def test_a_claimless_reply_is_still_checked(monkeypatch):
                     '["Free time here is 60 minutes."]}'))])
 
     monkeypatch.setattr(safety_critic, "_complete", capture)
-    output = safety_critic.ground(draft(), chunks=(chunk(),), model="fixture/model")
+    output = safety_critic.ground(draft(), chunks=(chunk(),), records=FACTS, model="fixture/model")
     assert called, "a claimless reply must still reach the grounding check"
     assert "declares no claims" in called[0]
+    # What grounding is told we knew is code's list, not anything the draft said.
+    assert all(f"- {fact}" in called[0] for fact in FACTS)
     assert output.unclaimed_assertions
 
 
@@ -215,7 +218,7 @@ def test_an_acknowledgement_with_no_claims_still_speaks():
     """SPEC 5: `no SOP cited` attaches to claims. A reply that asserts nothing
     about the rules needs no citation, or every arrival on the shift escalates."""
     reply = router.route(draft(), assessment(0.9), understood=UNDERSTOOD,
-                         language=Language.EN)
+                         language=Language.EN, facts=FACTS)
     assert reply.mode is ReplyMode.SPEAK
     assert reply.cited_sop_ids == []
     assert reply.text == "Gate closed at stop 2, noted."
@@ -229,13 +232,13 @@ def test_escalation_does_not_speak_the_drafted_text():
     )
     reply = router.route(
         draft([CLAIM], text="Gate closed. Your free waiting time here is 60 minutes."),
-        rejected, understood=UNDERSTOOD, language=Language.EN,
+        rejected, understood=UNDERSTOOD, language=Language.EN, facts=FACTS,
     )
     assert reply.mode is ReplyMode.ESCALATE
     assert "60 minutes" not in reply.text
     assert reply.claims == [] and reply.cited_sop_ids == []
     # It still speaks, and it still hands the facts back. SPEC 5, §2.
-    assert "Gate closed at stop 2" in reply.text
+    assert "Stop 2, Kochi Homeware Distributors" in reply.text
     assert "someone at the office is checking" in reply.text.lower()
 
 
@@ -245,14 +248,14 @@ def test_the_office_line_is_said_once():
     three times in one breath. The router is the only one that says it now."""
     wordy = draft(text="Gate closed. I'm checking with the office about that.")
     escalated = router.route(wordy, assessment(0.2), understood=UNDERSTOOD,
-                             language=Language.EN)
+                             language=Language.EN, facts=FACTS)
     assert escalated.text.lower().count("office") == 1
     # The drafted sentence is gone with the rest of the draft, not merely
     # deduplicated out of it.
     assert "I'm checking with the office" not in escalated.text
 
     hedged = router.route(draft([CLAIM]), assessment(0.6, grounded_claims=(CLAIM,)),
-                          understood=UNDERSTOOD, language=Language.EN)
+                          understood=UNDERSTOOD, language=Language.EN, facts=FACTS)
     assert hedged.text.lower().count("office") == 1
 
 
@@ -261,17 +264,28 @@ def test_the_reply_speaks_the_drivers_language_not_the_drafts():
     of what it thinks it wrote — a Malayalam speaker got a Hindi closing line
     off the back of one romanised transcript."""
     mislabelled = ResponderOutput(**(draft().model_dump() | {"language": Language.HI}))
-    reply = router.route(mislabelled, assessment(0.2), understood=UNDERSTOOD,
-                         language=Language.ML)
-    assert reply.mode is ReplyMode.ESCALATE
+    reply = router.route(mislabelled, assessment(0.6), understood=UNDERSTOOD,
+                         language=Language.ML, facts=FACTS)
+    assert reply.mode is ReplyMode.SPEAK_HEDGED
     assert reply.language is Language.ML
     assert "ഓഫീസ" in reply.text
     assert "ऑफिस" not in reply.text
 
 
+def test_an_escalation_speaks_codes_facts_and_nothing_of_the_draft():
+    """SPEC 5.2. What he hears on escalation is what code wrote from state —
+    English, like every fact code writes, so the wrapper is English too."""
+    reply = router.route(draft(text="ഗേറ്റ് അടച്ചിരിക്കുന്നു"), assessment(0.2), understood=UNDERSTOOD,
+                         language=Language.ML, facts=FACTS)
+    assert reply.mode is ReplyMode.ESCALATE and reply.language is Language.EN
+    assert reply.restated_facts == list(FACTS)
+    assert all(fact.rstrip(".") in reply.text for fact in FACTS)
+    assert "ഗേറ്റ്" not in reply.text
+
+
 def test_hedged_reply_keeps_the_draft_and_says_it_is_confirming():
     reply = router.route(draft([CLAIM]), assessment(0.6, grounded_claims=(CLAIM,)),
-                         understood=UNDERSTOOD, language=Language.EN)
+                         understood=UNDERSTOOD, language=Language.EN, facts=FACTS)
     assert reply.mode is ReplyMode.SPEAK_HEDGED
     assert reply.text.startswith("Gate closed at stop 2, noted.")
     assert "office" in reply.text
@@ -280,8 +294,8 @@ def test_hedged_reply_keeps_the_draft_and_says_it_is_confirming():
 
 def test_every_reply_restates_and_citations_track_claims():
     reply = router.route(draft([CLAIM]), assessment(0.9, grounded_claims=(CLAIM,)),
-                         understood=UNDERSTOOD, language=Language.EN)
-    assert reply.restated_facts
+                         understood=UNDERSTOOD, language=Language.EN, facts=FACTS)
+    assert reply.restated_facts == list(FACTS)
     assert reply.cited_sop_ids == [claim.cited_chunk_id for claim in reply.claims]
     with pytest.raises(ValidationError, match="does not match the chunks"):
         DriverReply.model_validate(reply.model_dump() | {"cited_sop_ids": ["SOP-OTHER"]})
@@ -297,14 +311,14 @@ def test_responder_cannot_cite_a_chunk_it_was_not_shown():
         exception=None, sop_chunks=(chunk(),), precedents=(),
     )
     payload = (
-        '{"language": "en", "text": "ok", "restated_facts": ["a"], "confidence": 0.9,'
+        '{"language": "en", "text": "ok", "confidence": 0.9,'
         ' "claims": [{"text": "60 minutes", "cited_chunk_id": "SOP-INVENTED-001"}]}'
     )
     with pytest.raises(ResponderError, match="not retrieved"):
         parse_reply(payload, context)
 
 
-@pytest.mark.parametrize("where", ["text", "restated_facts", "claims"])
+@pytest.mark.parametrize("where", ["text", "claims"])
 def test_responder_cannot_speak_an_internal_name(where):
     """Facts read to a driver never carry enum names. Sonnet spoke "GATE_CLOSED
     exception … open ആണ്"; a draft like that is refused, not spoken."""
@@ -315,12 +329,11 @@ def test_responder_cannot_speak_an_internal_name(where):
         exception=None, sop_chunks=(chunk(),), precedents=(),
     )
     leak = "GATE_CLOSED exception 10:13 മുതൽ open ആണ്"
-    draft = {"language": "ml", "text": "ഗേറ്റ് അടച്ചിരിക്കുന്നു", "confidence": 0.9,
-             "restated_facts": ["ഗേറ്റ് 10:13 മുതൽ അടച്ചിരിക്കുന്നു"], "claims": []}
+    draft = {"language": "ml", "text": "ഗേറ്റ് അടച്ചിരിക്കുന്നു", "confidence": 0.9, "claims": []}
     if where == "claims":
         draft["claims"] = [{"text": leak, "cited_chunk_id": chunk().id}]
     else:
-        draft[where] = [leak] if where == "restated_facts" else leak
+        draft["text"] = leak
     with pytest.raises(ResponderError, match="Internal names.*GATE_CLOSED"):
         parse_reply(json.dumps(draft, ensure_ascii=False), context)
 
@@ -332,8 +345,23 @@ def test_responder_cannot_route_itself():
         stop=None, customer=None, detention=None, exception=None,
         sop_chunks=(), precedents=(),
     )
-    payload = ('{"language": "en", "text": "ok", "restated_facts": ["a"], '
-               '"confidence": 0.9, "mode": "SPEAK"}')
+    payload = '{"language": "en", "text": "ok", "confidence": 0.9, "mode": "SPEAK"}'
+    with pytest.raises(ResponderError, match="Bad shape"):
+        parse_reply(payload, context)
+
+
+def test_responder_has_nowhere_to_put_a_fact():
+    """SPEC 1.1 and 5.2. Which figures are ours is a question about state. The
+    responder has no `restated_facts`, as the interpreter has no `stop_id`, so
+    a draft that tries to file its own records fails validation."""
+    context = ResponderContext(
+        now=None, transcript="x", language=Language.EN, intents=(Intent.QUESTION,),
+        event_type=None, question_text=None, driver_claimed_wait_minutes=None,
+        stop=None, customer=None, detention=None, exception=None,
+        sop_chunks=(), precedents=(),
+    )
+    payload = ('{"language": "en", "text": "ok", "confidence": 0.9, '
+               '"restated_facts": ["13 minutes of free time left"]}')
     with pytest.raises(ResponderError, match="Bad shape"):
         parse_reply(payload, context)
 
@@ -372,7 +400,7 @@ def test_every_parser_reads_one_object_through_surrounding_prose():
         event_type=None, question_text=None, driver_claimed_wait_minutes=None,
         stop=None, customer=None, detention=None, exception=None, sop_chunks=(), precedents=(),
     )
-    draft = '{"language": "en", "text": "ok", "restated_facts": ["a"], "confidence": 0.9}'
+    draft = '{"language": "en", "text": "ok", "confidence": 0.9}'
     assert parse_reply(f"```json\n{draft}\n```\nI kept it short.", context).text == "ok"
 
 

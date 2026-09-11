@@ -124,6 +124,7 @@ def route(
     *,
     understood: InterpreterOutput,
     language: Language,
+    facts: tuple[str, ...],
     audio_path: str | None = None,
 ) -> DriverReply:
     """Assemble what actually gets spoken.
@@ -143,8 +144,10 @@ def route(
 
     if mode is ReplyMode.ESCALATE:
         # The draft may contain the very sentence grounding rejected, so none
-        # of it is spoken. Facts survive: they never came from retrieval.
-        text = escalation_text(draft.restated_facts, language)
+        # of it is spoken. His facts are: code wrote them from state (SPEC 5.2).
+        # They are English, like every fact code writes, so the wrapper is
+        # English too rather than English facts inside his language.
+        text, language = escalation_text(list(facts), Language.EN), Language.EN
         claims = ()
     elif mode is ReplyMode.SPEAK_HEDGED:
         text = f"{draft.text} {HEDGE.get(language, HEDGE[Language.EN])}"
@@ -155,7 +158,7 @@ def route(
         mode=mode,
         language=language,
         text=text,
-        restated_facts=draft.restated_facts,
+        restated_facts=list(facts),
         claims=list(claims),
         cited_sop_ids=[claim.cited_chunk_id for claim in claims],
         audio_path=audio_path,

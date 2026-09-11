@@ -38,11 +38,12 @@ rule in its prose and forget to declare it. Quote the sentence.
 Ordinary reassurance is not an assertion. "I am checking with the office" and
 "a person is looking at this" claim nothing about the terms.
 
-Anything listed under **What we already knew** came from our own operational
-records, not from a customer document. Times, stops, clock readings, what he
-told us, how long we have counted. Those are restated for him to correct, and
-they are not claims about rules. Ignore them, including where the reply words
-them differently from the list.
+**What we already knew** is written by our system, not by the reply. Every line
+in it was computed from our own records — times, stops, clock readings, free
+time and how much of it is left, what he told us. Those are restated for him to
+correct, and they are not claims about the customer's rules, even where they
+bear on pay. A sentence that says any of them again — in any language, in any
+words — is not an unclaimed assertion. Flag only what that list does not carry.
 
 ## Output
 

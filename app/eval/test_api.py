@@ -60,7 +60,7 @@ def stub_rules(monkeypatch, service, *, supported=True):
     claim = Claim(text="You have 60 minutes free.", cited_chunk_id=source.id)
     monkeypatch.setattr(responder, "respond", lambda ctx: ResponderOutput(
         language=Language.EN, text="The gate is closed. You have 60 minutes free.",
-        restated_facts=["The gate is closed at stop 2."], claims=[claim], confidence=.9))
+        claims=[claim], confidence=.9))
     monkeypatch.setattr(safety_critic, "ground", lambda *args, **kwargs: safety_critic.GroundingOutput(
         verdicts=[safety_critic.Verdict(supported=supported, affects_pay_or_liability=True,
                                      reason="The passage does not support this rule." if not supported else "")]))
@@ -443,6 +443,31 @@ def test_the_context_gives_the_responder_no_internal_names_to_copy(client, servi
     assert responder.INTERNAL_NAMES.findall(rendered) == []
     assert "The gate is closed" in rendered and "arrived, unloading not started" in rendered
     assert "exception" not in rendered and "status" not in rendered
+
+
+def test_the_facts_he_is_shown_are_codes_and_are_what_grounding_is_told(client, service, monkeypatch):
+    """SPEC 1.1 and 5.2. The consignee-absent reply escalated because grounding
+    was asked to take the responder's word for which figures were ours. Code
+    writes them now: the same list is his facts and grounding's records."""
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED)
+    contexts = capture_context(monkeypatch)
+    stub_rules(monkeypatch, service)
+    told = []
+
+    def ground(draft, chunks, *, records, model=None):
+        told.append(records)
+        return safety_critic.GroundingOutput(verdicts=[safety_critic.Verdict(
+            supported=True, affects_pay_or_liability=True)])
+
+    monkeypatch.setattr(safety_critic, "ground", ground)
+    post(client, "gate ippozhum adachirikkuva")
+
+    facts = contexts[-1].record_facts()
+    assert service.exchanges[-1].reply.restated_facts == list(facts)
+    assert told == [facts]
+    assert "Waiting counted from 10:12, when we recorded your arrival: 61 minutes so far." in facts
+    assert "Free time here: 60 minutes." in facts and "Past the free time by 1 minute." in facts
+    assert "The gate is closed — recorded at 10:13." in facts
 
 
 @pytest.mark.parametrize("broken", ["exploding", "brittle"])

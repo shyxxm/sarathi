@@ -122,8 +122,50 @@ class ResponderContext:
         """The exact text the model is handed. Kept readable on purpose: this
         is the artefact you inspect when a reply comes out wrong."""
         return "\n".join(filter(None, [
-            self._heard(), self._situation(), self._clock(), self._rules(), self._task(),
+            self._heard(), self._situation(), self._clock(), self._record(), self._rules(), self._task(),
         ]))
+
+    def record_facts(self) -> tuple[str, ...]:
+        """What we have on record, in code's words. SPEC 5.2.
+
+        Which figures are ours is a question about state, so the model neither
+        writes this list nor decides what goes in it — the same fix as identity
+        (SPEC 1.1). It is the reply's `restated_facts`, and it is what grounding
+        is told we already knew. English, like every other fact code writes.
+        """
+        facts, opened = [], self.exception
+        if self.stop is not None and self.customer is not None:
+            facts.append(f"Stop {self.stop.seq}, {self.customer.name}: {STATUS_PHRASE[self.stop.status]}.")
+        reported = self.transcript and self.event_type not in (None, EventType.ACKNOWLEDGEMENT)
+        if reported and not (opened and opened.exception_type is self.event_type):
+            facts.append(f"{EVENT_WORDS[self.event_type]}.")
+        # A problem he reported, not one we detected: "we flagged you overdue"
+        # is not a fact to read to a driver (CLAUDE.md rule 1).
+        if opened is not None and opened.opened_by == "driver":
+            facts.append(f"{EVENT_WORDS[opened.exception_type]} — recorded at {opened.opened_at:%H:%M}.")
+        if self.question_text:
+            facts.append(f'You asked: "{self.question_text}"')
+        if self.driver_claimed_wait_minutes is not None:
+            facts.append(f"You said you have been waiting {_minutes(self.driver_claimed_wait_minutes)}.")
+        if self.detention is not None:
+            waiting = self.detention
+            facts.append(f"Waiting counted from {waiting.arrival_observed_at:%H:%M}, when we recorded "
+                         f"your arrival: {_minutes(waiting.observed_wait_minutes)} so far.")
+            facts.append(f"Free time here: {_minutes(waiting.free_detention_minutes)}.")
+            facts.append(
+                f"Past the free time by {_minutes(waiting.billable_minutes)}." if waiting.crossed else
+                f"{_minutes(waiting.free_detention_minutes - waiting.observed_wait_minutes)} of free time left.")
+        if self.stop is not None:
+            facts.append(f"Delivery window {self.stop.window_open:%H:%M}–{self.stop.window_close:%H:%M}.")
+        if self.now is not None:
+            facts.append(f"It is now {self.now:%H:%M}.")
+        return tuple(facts) or (f"{EVENT_WORDS[EventType.ACKNOWLEDGEMENT]}.",)
+
+    def _record(self) -> str:
+        lines = ["", "## On record — say these back to him in `text`", "",
+                 "(Our records, in our words. This list is what he sees as his facts and "
+                 "you do not write one. Keep every number exactly as it is here.)", ""]
+        return "\n".join(lines + [f"- {fact}" for fact in self.record_facts()])
 
     def _heard(self) -> str:
         lines = ["## What the driver said", ""]
@@ -162,7 +204,7 @@ class ResponderContext:
         lines = [
             "", "## The clock", "",
             # No internal references here: the responder copies this wording
-            # into restated_facts almost verbatim, and "SPEC 4.2" reached a
+            # into what he hears almost verbatim, and "SPEC 4.2" reached a
             # driver-facing string the first time this ran.
             f"waiting counted from: {waiting.arrival_observed_at:%H:%M} "
             f"(when we learned he had arrived)",
@@ -215,9 +257,8 @@ class ResponderContext:
             "", "## Now write the reply", "",
             f"It is {self.now:%H:%M}.",
             f"Write in {self.language.value}. That is the language he is spoken to in, "
-            f"and it may not be the language of the message above. `text` and every "
-            f"entry in `restated_facts` are both read out to him, so both are in "
-            f"{self.language.value} — not one in each.",
+            f"and it may not be the language of the message above. `text` is read "
+            f"out to him, so all of it is in {self.language.value}.",
             f'Set `language` to "{self.language.value}".',
             "Return JSON only, in the shape the system prompt gives.",
         ])
@@ -321,7 +362,7 @@ def _parse(content: str, context: ResponderContext) -> ResponderOutput:
 
     # Facts read to a driver never carry enum names. A draft that does is not
     # spoken; the reply escalates with his facts in plain words instead.
-    heard = " ".join([output.text, *output.restated_facts, *(claim.text for claim in output.claims)])
+    heard = " ".join([output.text, *(claim.text for claim in output.claims)])
     leaked = sorted(set(INTERNAL_NAMES.findall(heard)))
     if leaked:
         raise ResponderError(f"Internal names in what he would hear: {leaked}")

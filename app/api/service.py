@@ -332,8 +332,11 @@ class ShiftService:
             retrieval=retrieval, detention=waiting_at(state, event.stop_id, now), exception=exception,
         )
         draft = responder.respond(context)
+        # Code's facts, not the draft's: which figures are ours is a question
+        # about state (SPEC 5.2). Grounding is told them, and he is shown them.
+        records = context.record_facts()
         assessment = safety_critic.assess(
-            understood=understood, draft=draft, chunks=context.sop_chunks,
+            understood=understood, draft=draft, chunks=context.sop_chunks, records=records,
             retrieval_score=retrieval.retrieval_score,
             cost_exposure_paise=detention.exposure_paise(state, event.stop_id, now),
             decision=exception.decision if exception else None,
@@ -343,7 +346,7 @@ class ShiftService:
             raise MessageUnavailable("The safety check could not be completed")
         return Exchange(event.id, now, event.raw_transcript,
                         router.route(draft, assessment, understood=understood,
-                                     language=state.driver_language),
+                                     language=state.driver_language, facts=records),
                         context.sop_chunks, assessment, understood, retrieval)
 
     def submit(self, text: str, message_id: str):

@@ -50,7 +50,9 @@ class ResponderOutput(BaseModel):
 
     language: Language
     text: str = Field(min_length=1)
-    restated_facts: list[str] = Field(min_length=1)
+    # No `restated_facts`. Which figures are ours is a question about state,
+    # so code writes that list (SPEC 5.2) and the model has nowhere to put one
+    # — as the interpreter has nowhere to put a stop_id (SPEC 1.1).
     claims: list[Claim] = Field(default_factory=list)
 
     # The model's own rating. §5 caps its weight at 0.20 — it is an input to
