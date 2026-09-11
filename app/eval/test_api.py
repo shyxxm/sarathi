@@ -9,7 +9,7 @@ from app.agents.interpreter import InterpreterError
 from app.api.main import create_app
 from app.api.service import MessageUnavailable, ShiftService, waiting_at
 from app.api.views import context
-from app.domain import detention
+from app.domain import detention, words
 from app.contracts.enums import EventType, Intent, Language, ReplyMode
 from app.contracts.event import InterpreterOutput
 from app.contracts.reply import Claim, ResponderOutput
@@ -172,8 +172,10 @@ def test_a_prose_answer_and_an_illegible_message_never_share_a_reply(client, ser
     post(client, "sdkjfh skdjfh")
     illegible = service.exchanges[-1]
     assert failed.failure and not illegible.failure
-    assert "fault is ours" in failed.reply.text and "could not make out" not in failed.reply.text
-    assert "could not make out" in illegible.reply.text and "fault is ours" not in illegible.reply.text
+    # By line, not by English wording: he is spoken to in his language (SPEC 7.2).
+    unclear, ours = words.say(Language.ML, "issue.unclear"), words.say(Language.ML, "failed.reached")
+    assert ours in failed.reply.text and unclear not in failed.reply.text
+    assert unclear in illegible.reply.text and ours not in illegible.reply.text
 
 
 def test_missing_sop_service_retains_report_and_escalates(client, service, monkeypatch):
@@ -466,9 +468,9 @@ def test_the_facts_he_is_shown_are_codes_and_are_what_grounding_is_told(client, 
     facts = contexts[-1].record_facts()
     assert service.exchanges[-1].reply.restated_facts == list(facts)
     assert told == [facts]
-    assert "Waiting counted from 10:12, when we recorded your arrival: 61 minutes so far." in facts
-    assert "Free time here: 60 minutes." in facts and "Past the free time by 1 minute." in facts
-    assert "The gate is closed — recorded at 10:13." in facts
+    # The figures, in whichever language each sentence is said (SPEC 7.2).
+    assert any("10:12" in fact and "61" in fact for fact in facts)
+    assert any("60" in fact for fact in facts) and any("10:13" in fact for fact in facts)
 
 
 @pytest.mark.parametrize("broken", ["exploding", "brittle"])

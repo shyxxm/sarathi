@@ -102,11 +102,21 @@ EN: dict[str, str] = {
 # English is beside each line; keep the {slots} you need, drop any you do not.
 # A line is heard as soon as it is written. A sentence that carries another
 # line — a status, an event, the minutes — waits until that one is written too.
+#
+# PLACEHOLDER — the lines marked `# placeholder` below, and listed in
+# UNREVIEWED, were written without a Malayalam speaker. Grammar is likely
+# sound; register is not verified. Replace them after review, and do not take
+# them for checked text in the meantime.
+#
+# The English loanwords in Malayalam script are deliberate: ഫ്രീ ടൈം, ഡെലിവറി,
+# സ്റ്റോപ്പ്, മിനിറ്റ്, വിൻഡോ. They are what drivers actually say for freight
+# vocabulary. Do not "correct" them to native words — a model once rendered
+# "free time" as സ്വതന്ത്ര സമയം, which is free as in liberty, and wrong.
 ML: dict[str, str] = {
-    "event.DEPARTED": TODO,  # You set off
-    "event.ARRIVED_STOP": TODO,  # You arrived
-    "event.SERVICE_STARTED": TODO,  # Unloading started
-    "event.STOP_COMPLETED": TODO,  # Delivery completed
+    "event.DEPARTED": "നിങ്ങൾ പുറപ്പെട്ടു",  # placeholder — You set off
+    "event.ARRIVED_STOP": "നിങ്ങൾ എത്തി",  # placeholder — You arrived
+    "event.SERVICE_STARTED": "ഇറക്കൽ തുടങ്ങി",  # placeholder — Unloading started
+    "event.STOP_COMPLETED": "ഡെലിവറി കഴിഞ്ഞു",  # placeholder — Delivery completed
     "event.GATE_CLOSED": TODO,  # The gate is closed
     "event.CONSIGNEE_ABSENT": TODO,  # Nobody is there to receive the delivery
     "event.VEHICLE_BREAKDOWN": TODO,  # The vehicle has broken down
@@ -122,7 +132,7 @@ ML: dict[str, str] = {
     "event.REATTEMPT_SCHEDULED": TODO,  # Another delivery attempt was scheduled
     "status.PENDING": TODO,  # not started
     "status.EN_ROUTE": TODO,  # on the way
-    "status.ARRIVED": TODO,  # arrived, unloading not started
+    "status.ARRIVED": "എത്തി, ഇറക്കൽ തുടങ്ങിയിട്ടില്ല",  # placeholder — arrived, unloading not started
     "status.IN_SERVICE": TODO,  # unloading
     "status.COMPLETED": TODO,  # delivered
     "status.FAILED": TODO,  # not delivered
@@ -143,14 +153,14 @@ ML: dict[str, str] = {
     "reject.not_on_road": TODO,  # I do not have you on the road yet. Did you leave the depot?
     "reject.wrong_stop": TODO,  # I have you on the way to {here}, not {stop}. Which stop have you reached?
     "record.event": TODO,  # {event}.
-    "record.event_at_stop": TODO,  # {event} — stop {seq}, {customer}.
-    "record.arrival": TODO,  # Your arrival was recorded at {time}.
+    "record.event_at_stop": "{event} — സ്റ്റോപ്പ് {seq}, {customer}.",  # placeholder — {event} — stop {seq}, {customer}.
+    "record.arrival": "നിങ്ങൾ എത്തിയത് {time}-ന് രേഖപ്പെടുത്തി.",  # placeholder — Your arrival was recorded at {time}.
     "record.claimed_wait": TODO,  # You said you had waited about {minutes}.
     "issue.correction": TODO,  # You asked to correct the record. Your earlier record is unchanged for now.
-    "issue.unclear": TODO,  # I could not make out what happened or which stop this is about.
+    "issue.unclear": "നിങ്ങൾ പറഞ്ഞത് എനിക്ക് വ്യക്തമായില്ല",  # placeholder — I could not make out what happened or which stop this is about.
     "failed.reached": TODO,  # Your message reached me, but I could not process it. The fault is ours, not your words.
     "failed.nothing_recorded": TODO,  # Nothing has been recorded on your trip.
-    "fact.stop": TODO,  # Stop {seq}, {customer}: {status}.
+    "fact.stop": "സ്റ്റോപ്പ് {seq}, {customer}: {status}.",  # placeholder — Stop {seq}, {customer}: {status}.
     "fact.event": TODO,  # {event}.
     "fact.problem": TODO,  # {event} — recorded at {time}.
     # No {question} in this one: it carries the interpreter's English, and an
@@ -158,20 +168,29 @@ ML: dict[str, str] = {
     # he asked; do not quote him back.
     "fact.asked": TODO,  # You asked a question.
     "fact.claimed_wait": TODO,  # You said you have been waiting {minutes}.
-    "fact.waiting": TODO,  # Waiting counted from {time}, when we recorded your arrival: {minutes} so far.
-    "fact.free_time": TODO,  # Free time here: {minutes}.
+    "fact.waiting": "കാത്തിരിപ്പ് {time} മുതൽ കണക്കാക്കുന്നു — ഇതുവരെ {minutes}.",  # placeholder — Waiting counted from {time}, when we recorded your arrival: {minutes} so far.
+    "fact.free_time": "ഇവിടെ ഫ്രീ ടൈം: {minutes}.",  # placeholder — Free time here: {minutes}.
     "fact.past_free": TODO,  # Past the free time by {minutes}.
-    "fact.free_left": TODO,  # {minutes} of free time left.
-    "fact.window": TODO,  # Delivery window {open}–{close}.
-    "fact.now": TODO,  # It is now {time}.
+    "fact.free_left": "ഫ്രീ ടൈം ഇനി {minutes} ബാക്കി.",  # placeholder — {minutes} of free time left.
+    "fact.window": "ഡെലിവറി വിൻഡോ {open}–{close}.",  # placeholder — Delivery window {open}–{close}.
+    "fact.now": "ഇപ്പോൾ സമയം {time}.",  # placeholder — It is now {time}.
     "unit.minute_one": TODO,  # {n} minute
-    "unit.minute_many": TODO,  # {n} minutes
+    "unit.minute_many": "{n} മിനിറ്റ്",  # placeholder — {n} minutes
     # Already in use before this table existed.
     "escalation.opening": "രേഖപ്പെടുത്തി: {facts}.",
     "escalation.closing": "ബാക്കി ഓഫീസിൽ ഒരാൾ നോക്കുന്നുണ്ട്.",
     "failure.closing": TODO,  # A dispatcher has your message and will get back to you.
     "hedge": "ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
 }
+
+# The Malayalam lines above written without a Malayalam speaker. Remove a key
+# once a speaker has checked its line; the suite keeps this list honest.
+UNREVIEWED: frozenset[str] = frozenset({
+    "record.event_at_stop", "event.DEPARTED", "event.ARRIVED_STOP", "record.arrival",
+    "event.SERVICE_STARTED", "event.STOP_COMPLETED", "unit.minute_many", "fact.stop",
+    "status.ARRIVED", "fact.waiting", "fact.free_time", "fact.free_left", "fact.window",
+    "fact.now", "issue.unclear",
+})
 
 # Only the lines that existed before this table. Everything else is said to
 # these drivers in English, a sentence at a time.

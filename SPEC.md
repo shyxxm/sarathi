@@ -1287,10 +1287,14 @@ code wrote for him was English.
 - **A driver never hears a marker.** A line not yet written is said in
   English, whole.
 
-**State, 11 September 2026:** English complete. Malayalam lists every key, with
-`TODO` on all but the three lines that already existed — the escalation opening
-and closing, and the hedge — and those are heard now. Not covered: the driver
-page's own labels and the composer's error messages.
+**State, 11 September 2026:** English complete. Malayalam has 18 of 64 lines:
+the three that already existed — the escalation opening and closing, and the
+hedge — and 15 **unreviewed placeholders** for the lines a driver hears most,
+written without a Malayalam speaker. They are marked in the table and listed in
+`UNREVIEWED` until someone who speaks Malayalam has checked them. The rest are
+`TODO`. The English loanwords in Malayalam script (ഫ്രീ ടൈം, ഡെലിവറി,
+സ്റ്റോപ്പ്, മിനിറ്റ്, വിൻഡോ) are deliberate. Not covered: the driver page's own
+labels and the composer's error messages.
 
 ---
 
