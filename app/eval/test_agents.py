@@ -351,6 +351,31 @@ def test_grounding_reads_the_fenced_verdicts_and_not_a_note_after_them():
         safety_critic._parse(f"```json\n{verdicts}\n```\nor\n```json\n{verdicts}\n```")
 
 
+def test_every_parser_reads_one_object_through_surrounding_prose():
+    """SPEC 3.7. A model saying more than it was asked broke a parser three
+    times, and each time the error surfaced as something else. The object is
+    the answer; prose around it is not. No object, or two, is still refused."""
+    from app.agents import interpreter
+    from app.agents.interpreter import InterpreterError
+
+    reading = '{"intents": ["QUESTION"], "language": "en"}'
+    for said in (reading, f"Here is the reading:\n{reading}\nHope that helps.",
+                 f"```json\n{reading}\n```\n\n**Note:** the message is clean English."):
+        assert interpreter._parse(said, "x").intents == [Intent.QUESTION]
+    with pytest.raises(InterpreterError, match="no JSON object"):
+        interpreter._parse("I cannot answer that question. I have no access to the customer's terms.", "x")
+    with pytest.raises(InterpreterError, match="2 JSON objects"):
+        interpreter._parse(f"{reading}\nor perhaps\n{reading}", "x")
+
+    context = ResponderContext(
+        now=None, transcript="x", language=Language.EN, intents=(Intent.QUESTION,),
+        event_type=None, question_text=None, driver_claimed_wait_minutes=None,
+        stop=None, customer=None, detention=None, exception=None, sop_chunks=(), precedents=(),
+    )
+    draft = '{"language": "en", "text": "ok", "restated_facts": ["a"], "confidence": 0.9}'
+    assert parse_reply(f"```json\n{draft}\n```\nI kept it short.", context).text == "ok"
+
+
 # --- interpreter boundary ----------------------------------------------------
 
 def test_a_question_with_no_event_has_nothing_unresolved():

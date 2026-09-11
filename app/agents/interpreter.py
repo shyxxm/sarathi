@@ -5,7 +5,6 @@ guessed one: `InterpreterOutput` forbids unknown keys, so a model that tries to
 return a `stop_id` fails validation instead of being believed. CLAUDE.md rule 3.
 """
 
-import json
 import os
 import random
 import time
@@ -17,6 +16,7 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from app import tracing
+from app.agents import model_json
 from app.contracts.enums import EventType, Intent
 from app.contracts.event import InterpreterOutput
 
@@ -102,11 +102,10 @@ def _complete(transcript: str, model: str):
 
 
 def _parse(content: str, transcript: str) -> InterpreterOutput:
-    body = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
     try:
-        payload = json.loads(body)
-    except json.JSONDecodeError as error:
-        raise InterpreterError(f"Not JSON for {transcript!r}: {content[:200]}") from error
+        payload = model_json.extract(content)
+    except model_json.NoSingleObject as error:
+        raise InterpreterError(f"Not JSON for {transcript!r} ({error}): {content[:200]}") from error
 
     try:
         output = InterpreterOutput.model_validate(payload)

@@ -16,16 +16,15 @@ the seeded corpus.
 
 from dataclasses import dataclass
 from functools import cache
-import json
 import os
 from pathlib import Path
-import re
 import time
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app import tracing
+from app.agents import model_json
 from app.contracts.decision import ActionType, Decision
 from app.contracts.enums import Intent
 from app.contracts.event import InterpreterOutput
@@ -233,21 +232,13 @@ def _complete(rendered: str, model: str):
             time.sleep(_pause(error, attempt))
 
 
-FENCED = re.compile(r"```(?:json)?[ \t]*\n?(.*?)```", re.S)
-
-
 def _parse(content: str) -> GroundingOutput:
-    # Sonnet sometimes puts a note after the fenced verdicts ("**Note on the
-    # unclaimed assertion:** …"). The verdicts are the fenced block; prose
-    # around it is not an answer. Two blocks is ambiguous and is refused.
-    blocks = FENCED.findall(content)
-    if len(blocks) > 1:
-        raise CriticError(f"Grounding check returned {len(blocks)} JSON blocks: {content[:200]}")
-    body = blocks[0] if blocks else content.strip()
+    # Sonnet puts a note after its fenced verdicts ("**Note on the unclaimed
+    # assertion:** …"); the verdicts are the answer. SPEC 3.7.
     try:
-        payload = json.loads(body)
-    except json.JSONDecodeError as error:
-        raise CriticError(f"Grounding check did not return JSON: {content[:200]}") from error
+        payload = model_json.extract(content)
+    except model_json.NoSingleObject as error:
+        raise CriticError(f"Grounding check did not return one JSON object ({error}): {content[:200]}") from error
     try:
         return GroundingOutput.model_validate(payload)
     except ValidationError as error:

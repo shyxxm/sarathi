@@ -521,6 +521,32 @@ enters the retrieval index on PENDING.
 detention maths lives in `domain/detention.py` and this field caches its output
 for display.
 
+### 3.7 Parsing model output
+
+**Every parser tolerates surrounding prose.** Models say more than they are
+asked to: a fence around the object, a sentence before it, a note after it.
+Three times on 11 September 2026 that broke a parser here, and each time the
+error surfaced as something else:
+
+- The interpreter answered a driver's question in prose instead of returning
+  its JSON (m06q4). The driver was told his message could not be read (§2.2).
+- The same failure, in calibration, was filed with 429s as a provider error,
+  not a wrong answer, and the whole failure class stayed out of the score.
+- Grounding returned correct verdicts in a fence, then a note after them. The
+  check counted as not having run; the replay capture reported it as "check
+  the configured models" (§5.2).
+
+So the interpreter, the responder and grounding all read through one extractor,
+`agents/model_json.py`: the single fenced block if there is one, otherwise the
+single JSON object in the text. Prose around it is not an answer, and it is
+ignored.
+
+Still refused: no object at all — a model that answered in prose has failed —
+and more than one, because choosing between them would be a guess. And the
+other half of the rule: **a parser's failure is reported as a parser's
+failure**, naming the node and quoting the output. Never as a statement about
+the driver's words, the provider, or the configuration.
+
 ---
 
 ## 4. Deterministic core
@@ -1043,6 +1069,46 @@ holding probes out, then declining to swap one when it scored badly — it turne
 a tuning problem into a defect report. A probe that scores strangely is
 evidence about the system, and a system that is being tuned cannot produce
 evidence about itself.
+
+### 5.2 Two buckets: what we computed, and what their terms say
+
+**A fact derived from our own state needs no citation; it is checked by the
+driver hearing it back (§2). A claim about the customer's terms needs a
+citation; it is checked by grounding. A figure lands in exactly one of those
+buckets, and the responder must not be free to choose wrongly.**
+
+Our state: the clock `domain/detention.py` computes — when counting started,
+minutes waited, free minutes, minutes left, billable minutes, exposure — the
+stop and its window, the time, and what he told us. Free minutes and the rate
+are customer terms, but ones we hold as structured data and compute from; as
+figures, they are our state. Their terms, as claims: what the standing
+instructions *say* — which counter to report to, whether a shut gate stops the
+clock, who bears a failed delivery.
+
+The consignee-absent case broke this on 11 September 2026. The responder did
+the right thing: "free time 15 minutes, 13 left" went in `restated_facts`, and
+its one claim was the delivery-counter rule, cited and grounded. Its prose said
+the figure again in other words — "it is 12:02, the window runs to 13:00, 13
+minutes of free time remain". Grounding, told to ignore anything under *What we
+already knew* "including where the reply words them differently", flagged the
+sentence anyway: "a rule-derived calculation … which bears on when detention pay
+would begin". An unclaimed assertion is a hard override (§5), so a correct reply
+escalated.
+
+Both causes are the bucket being a model's decision:
+
+- **The records bucket is written by the responder.** *What we already knew* is
+  `draft.restated_facts` — the responder's own account of what came from our
+  records. Code computed the figure, a model restated it, and grounding was
+  asked to take the restatement on trust. It declined, and got the category
+  wrong.
+- **The exemption is a sentence in a prompt**, applied by a model to prose that
+  paraphrases the list. Paraphrase in Malayalam is exactly where that judgment
+  drifts.
+
+Which bucket a figure belongs to is decided by where it came from, and only
+code knows that. **Not built yet:** the record facts have to come from code, not
+from either model, so that neither one chooses the bucket.
 
 ---
 

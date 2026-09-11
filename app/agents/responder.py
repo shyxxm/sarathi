@@ -14,7 +14,6 @@ nothing here writes state (rule 4).
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cache
-import json
 import os
 from pathlib import Path
 import re
@@ -24,6 +23,7 @@ import time
 from pydantic import ValidationError
 
 from app import tracing
+from app.agents import model_json
 from app.contracts.enums import (EventType, ExceptionStatus, Intent, Language, ReplyMode,
                                  ResolutionStatus, StopStatus)
 from app.contracts.event import InterpreterOutput
@@ -301,11 +301,10 @@ def _complete(rendered: str, model: str):
 
 
 def _parse(content: str, context: ResponderContext) -> ResponderOutput:
-    body = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
     try:
-        payload = json.loads(body)
-    except json.JSONDecodeError as error:
-        raise ResponderError(f"Not JSON: {content[:200]}") from error
+        payload = model_json.extract(content)
+    except model_json.NoSingleObject as error:
+        raise ResponderError(f"Not JSON ({error}): {content[:200]}") from error
 
     try:
         output = ResponderOutput.model_validate(payload)
