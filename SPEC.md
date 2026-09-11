@@ -637,6 +637,17 @@ This is the general test for anything in `EventType`: **if two identical
 sentences map to different types depending on trip state, it is not one type
 the model can choose.** Split it in code, not in the model's vocabulary.
 
+**And the read-back has to split it back.** Until 11 September 2026 the
+read-back said "You set off — stop 1" for both "left the depot, heading to stop
+1" and "left stop 1". A driver hearing it could not tell which we had recorded,
+so he could not correct it — the restatement loop (§2) broken on the most
+frequent event of the shift. It now says which, in two lines code chooses: *You
+set off for stop 1* and *You left stop 1*. The choice is read from the log —
+`left_a_stop`: an earlier event finished that stop — not from the stop's status,
+because his record is read back hours later, when every stop has moved on.
+Collapsing a type the model cannot tell apart is right; the words he hears must
+still carry what the type does not.
+
 Illegal transitions do not mutate state. They become `UNCLEAR` and push the
 reply toward asking the driver what he meant.
 

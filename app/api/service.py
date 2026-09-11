@@ -18,7 +18,7 @@ from app.contracts.event import InterpreterOutput, OperationalEvent
 from app.contracts.reply import Claim, DriverReply
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
 from app.domain import detention, exception_rules, identity, resolution, watchdog, words
-from app.domain.state_machine import EVENT_WORDS, FINISHED, Rejected, TripState, apply
+from app.domain.state_machine import EVENT_WORDS, FINISHED, Rejected, TripState, apply, left_a_stop
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = logging.getLogger(__name__)
@@ -30,9 +30,19 @@ def event_facts(state: TripState, event: OperationalEvent) -> list[str]:
     lang = state.driver_language
     stop = state.stop(event.stop_id)
     happened = words.part(f"event.{event.event_type.value}")
-    facts = [words.say(lang, "record.event_at_stop", event=happened, seq=stop.seq,
-                       customer=state.customer_for(stop.id).name) if stop
-             else words.say(lang, "record.event", event=happened)]
+    if event.event_type is EventType.DRIVER_SILENT:
+        # A question on its own, not an event with a full stop after it.
+        facts = [words.say(lang, "record.check_in")]
+    elif event.event_type is EventType.DEPARTED and stop:
+        # "You set off — stop 1" meant both "left the depot for stop 1" and
+        # "left stop 1", so he could not correct it. Code knows which (SPEC 3.1).
+        facts = [words.say(lang, "record.departed_from" if left_a_stop(state, event) else "record.departed_to",
+                           seq=stop.seq, customer=state.customer_for(stop.id).name)]
+    elif stop:
+        facts = [words.say(lang, "record.event_at_stop", event=happened, seq=stop.seq,
+                           customer=state.customer_for(stop.id).name)]
+    else:
+        facts = [words.say(lang, "record.event", event=happened)]
     if event.event_type is EventType.ARRIVED_STOP:
         facts.append(words.say(lang, "record.arrival", time=f"{event.ingested_at:%H:%M}"))
     if event.driver_claimed_wait_minutes is not None:

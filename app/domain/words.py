@@ -70,6 +70,9 @@ EN: dict[str, str] = {
     # His record, read back.
     "record.event": "{event}.",
     "record.event_at_stop": "{event} — stop {seq}, {customer}.",
+    "record.departed_to": "You set off for stop {seq}, {customer}.",
+    "record.departed_from": "You left stop {seq}, {customer}.",
+    "record.check_in": "Everything alright? Need anything?",
     "record.arrival": "Your arrival was recorded at {time}.",
     "record.claimed_wait": "You said you had waited about {minutes}.",
     # Why a message went to a person.
@@ -154,6 +157,10 @@ ML: dict[str, str] = {
     "reject.wrong_stop": TODO,  # I have you on the way to {here}, not {stop}. Which stop have you reached?
     "record.event": TODO,  # {event}.
     "record.event_at_stop": "{event} — സ്റ്റോപ്പ് {seq}, {customer}.",  # placeholder — {event} — stop {seq}, {customer}.
+    "record.departed_to": "നിങ്ങൾ പുറപ്പെട്ടു — അടുത്തത് സ്റ്റോപ്പ് {seq}, {customer}.",  # placeholder — You set off for stop {seq}, {customer}.
+    "record.departed_from": "നിങ്ങൾ സ്റ്റോപ്പ് {seq} വിട്ടു — {customer}.",  # placeholder — You left stop {seq}, {customer}.
+    # A question on its own; no full stop after it.
+    "record.check_in": TODO,  # Everything alright? Need anything?
     "record.arrival": "നിങ്ങൾ എത്തിയത് {time}-ന് രേഖപ്പെടുത്തി.",  # placeholder — Your arrival was recorded at {time}.
     "record.claimed_wait": TODO,  # You said you had waited about {minutes}.
     "issue.correction": TODO,  # You asked to correct the record. Your earlier record is unchanged for now.
@@ -174,7 +181,7 @@ ML: dict[str, str] = {
     "fact.free_left": "ഫ്രീ ടൈം ഇനി {minutes} ബാക്കി.",  # placeholder — {minutes} of free time left.
     "fact.window": "ഡെലിവറി വിൻഡോ {open}–{close}.",  # placeholder — Delivery window {open}–{close}.
     "fact.now": "ഇപ്പോൾ സമയം {time}.",  # placeholder — It is now {time}.
-    "unit.minute_one": TODO,  # {n} minute
+    "unit.minute_one": "{n} മിനിറ്റ്",  # placeholder — {n} minute
     "unit.minute_many": "{n} മിനിറ്റ്",  # placeholder — {n} minutes
     # Already in use before this table existed.
     "escalation.opening": "രേഖപ്പെടുത്തി: {facts}.",
@@ -190,6 +197,7 @@ UNREVIEWED: frozenset[str] = frozenset({
     "event.SERVICE_STARTED", "event.STOP_COMPLETED", "unit.minute_many", "fact.stop",
     "status.ARRIVED", "fact.waiting", "fact.free_time", "fact.free_left", "fact.window",
     "fact.now", "issue.unclear",
+    "record.departed_to", "record.departed_from", "unit.minute_one",
 })
 
 # Only the lines that existed before this table. Everything else is said to

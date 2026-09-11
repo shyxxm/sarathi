@@ -271,6 +271,17 @@ def _depart(state: TripState, event: OperationalEvent) -> tuple[TripState, Outco
     return moved, Applied(event, (Transition(following.id, following.status, StopStatus.EN_ROUTE),))
 
 
+def left_a_stop(state: TripState, event: OperationalEvent) -> bool:
+    """Which departure this was, as `_depart` decided it: leaving a stop he had
+    finished, or leaving the depot for that stop. Read from the log, not from
+    the stop's status now — his record is read back hours later, when the stop
+    he drove to at 08:05 has long been delivered. SPEC 3.1."""
+    finishing = {kind for kind, (_, after) in TRANSITIONS.items() if after in FINISHED}
+    earlier = state.events[:next((i for i, e in enumerate(state.events) if e.id == event.id),
+                                 len(state.events))]
+    return any(e.stop_id == event.stop_id and e.event_type in finishing for e in earlier)
+
+
 def _subject(state: TripState, event: OperationalEvent) -> StopState | None:
     """Which stop the transition acts on."""
     return state.stop(event.stop_id)

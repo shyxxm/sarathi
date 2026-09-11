@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.api.main import create_app
-from app.api.service import ShiftService
-from app.contracts.enums import Intent, Language, ReplyMode
+from app.api.service import ShiftService, event_facts
+from app.contracts.enums import EventType, Intent, Language, ReplyMode
 from app.contracts.event import InterpreterOutput
 from app.domain import words
 
@@ -102,6 +102,25 @@ def test_once_it_is_all_written_an_escalation_is_all_his_language(monkeypatch):
     assert reply.language is Language.ML
     assert reply.text.startswith("[ml] Recorded: [ml] I could not make out")
     assert all(fact.startswith("[ml]") for fact in reply.restated_facts)
+
+
+def test_the_departure_read_back_says_which_departure_it_was(monkeypatch):
+    """"You set off — stop 1" meant both "left the depot for stop 1" and "left
+    stop 1", so he could not correct it. Read from the end of the shift, when
+    stop 1 has long been delivered, the depot departure still says so."""
+    monkeypatch.setitem(words.TABLES, Language.ML, table())
+    final = ShiftService().replay(600)
+    read = {e.id: event_facts(final, e)[0] for e in final.events if e.event_type is EventType.DEPARTED}
+    assert read["clean-depot-departure"] == "You set off for stop 1, Periyar Wholesale Foods."
+    assert read["clean-departure"] == "You left stop 1, Periyar Wholesale Foods."
+    assert read["gate-departure"] == "You left stop 2, Kochi Homeware Distributors."
+
+
+def test_the_check_in_is_a_question_without_a_full_stop_after_it(monkeypatch):
+    monkeypatch.setitem(words.TABLES, Language.ML, table())
+    final = ShiftService().replay(600)
+    silent = next(e for e in final.events if e.event_type is EventType.DRIVER_SILENT)
+    assert event_facts(final, silent) == ["Everything alright? Need anything?"]
 
 
 def test_the_dispatcher_keeps_english_while_the_driver_hears_malayalam(monkeypatch):
