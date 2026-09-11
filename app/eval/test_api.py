@@ -1,0 +1,223 @@
+from uuid import uuid4
+
+from fastapi.testclient import TestClient
+import pytest
+
+from app.agents import responder, safety_critic
+from app.api.main import create_app
+from app.api.service import MessageUnavailable, ShiftService, waiting_at
+from app.api.views import context
+from app.contracts.enums import EventType, Intent, Language, ReplyMode
+from app.contracts.event import InterpreterOutput
+from app.contracts.reply import Claim, ResponderOutput
+from app.contracts.retrieval import RetrievalResult, RetrievedChunk
+
+
+@pytest.fixture
+def service():
+    return ShiftService()
+
+
+@pytest.fixture
+def client(service):
+    with TestClient(create_app(service)) as client:
+        yield client
+
+
+def interpret_as(monkeypatch, service, event_type, **kwargs):
+    monkeypatch.setattr(service, "interpret", lambda text: InterpreterOutput(
+        intents=[Intent.REPORT], language=Language.EN, event_type=event_type, **kwargs))
+
+
+def post(client, text, message_id=None, *, htmx=True):
+    return client.post("/driver/messages", data={"text": text, "message_id": message_id or str(uuid4())},
+                       headers={"HX-Request": "true"} if htmx else {})
+
+
+def stub_rules(monkeypatch, service, *, supported=True):
+    source = RetrievedChunk(id="SOP-TEST-001", customer_id="customer-2",
+                            source_document="standing-instructions.md",
+                            text="Sixty minutes free. <script>alert('source')</script>", score=.8)
+    monkeypatch.setattr(service, "retrieve", lambda *args: RetrievalResult(sop_chunks=(source,), relevance_floor=.6))
+    claim = Claim(text="You have 60 minutes free.", cited_chunk_id=source.id)
+    monkeypatch.setattr(responder, "respond", lambda ctx: ResponderOutput(
+        language=Language.EN, text="The gate is closed. You have 60 minutes free.",
+        restated_facts=["The gate is closed at stop 2."], claims=[claim], confidence=.9))
+    monkeypatch.setattr(safety_critic, "ground", lambda *args, **kwargs: safety_critic.GroundingOutput(
+        verdicts=[safety_critic.Verdict(supported=supported, affects_pay_or_liability=True,
+                                     reason="The passage does not support this rule." if not supported else "")]))
+    return source
+
+
+def test_surfaces_and_no_audio_capture(client):
+    assert client.get("/", follow_redirects=False).headers["location"] == "/driver"
+    html = client.get("/driver").text
+    assert 'name="text"' in html and "Send to Sarathi" in html
+    assert "Your day, recorded" in html
+    assert "<audio" not in html and "microphone" not in html
+    html = client.get("/dispatcher").text
+    assert all(name in html for name in ["NEEDS ATTENTION", "HANDLED", "RUNNING FINE"])
+    assert 'min="0" max="600"' in html
+    assert "System-observed wait" in html and "Driver-claimed wait" in html
+    assert "Not assessed" in html and "Model self-rating" in html
+    assert client.get("/static/vendor/htmx.min.js").status_code == 200
+
+
+def test_replay_is_reversible_and_never_changes_current_shift(client, service):
+    before = service.state
+    for minute in [600, 0, 193, 194, 193]:
+        response = client.get(f"/dispatcher/board?minute={minute}", headers={"HX-Request": "true"})
+        assert response.status_code == 200
+        assert "<!doctype html>" not in response.text
+    assert service.state is before
+    assert service.minute == 193
+    assert not service.replay(0).events
+    assert service.replay(193) == service.snapshots[193]
+    assert client.get("/dispatcher?minute=-1").status_code == 422
+    assert client.get("/dispatcher?minute=601").status_code == 422
+    assert client.get("/dispatcher?minute=oops").status_code == 422
+
+
+def test_wait_uses_ingestion_and_freezes_when_unloading_starts(service):
+    gate = waiting_at(service.replay(193), "stop-2", service.now)
+    assert (gate.observed_wait_minutes, gate.driver_claimed_wait_minutes) == (61, 8)
+    assert (gate.free_detention_minutes, gate.billable_minutes, gate.exposure_paise) == (60, 1, 150)
+    for minute in [194, 600]:
+        state = service.replay(minute)
+        waiting = waiting_at(state, "stop-2", state.shift_end)
+        assert waiting.observed_wait_minutes == 62
+        assert waiting.exposure_paise == 300
+
+
+def test_report_uses_state_machine_and_duplicate_submission_is_idempotent(client, service, monkeypatch):
+    interpret_as(monkeypatch, service, EventType.SERVICE_STARTED)
+    message_id = str(uuid4())
+    count = len(service.state.events)
+    for _ in range(2):
+        response = post(client, "The gate opened and unloading started.", message_id)
+        assert response.status_code == 200
+        assert 'hx-swap-oob="outerHTML"' in response.text
+    assert len(service.state.events) == count + 1
+    assert len(service.exchanges) == 1
+    assert service.state.stop("stop-2").status.value == "IN_SERVICE"
+    assert not context(service)["attention"]
+
+
+def test_rejected_transition_keeps_status_and_does_not_claim_it_was_recorded(client, service, monkeypatch):
+    interpret_as(monkeypatch, service, EventType.ARRIVED_STOP)
+    response = post(client, "I have arrived again.")
+    assert response.status_code == 200
+    assert service.state.stop("stop-2").status.value == "ARRIVED"
+    assert service.state.events[-1].event_type is EventType.UNCLEAR
+    assert service.exchanges[-1].reply.mode is ReplyMode.ESCALATE
+    assert "I already have" in service.exchanges[-1].reply.text
+
+
+def test_failed_interpretation_retains_text_and_does_not_record(client, service, monkeypatch):
+    def fail(text):
+        raise RuntimeError("provider token must not be exposed")
+    monkeypatch.setattr(service, "interpret", fail)
+    before = service.state
+    response = post(client, "Reached the gate.")
+    assert "It has not been recorded" in response.text
+    assert "Reached the gate." in response.text
+    assert "provider token" not in response.text
+    assert service.state is before
+    assert not service.pending_messages
+
+
+def test_missing_sop_service_retains_report_and_escalates(client, service, monkeypatch):
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED)
+    def fail(*args):
+        raise RuntimeError("database unavailable")
+    monkeypatch.setattr(service, "retrieve", fail)
+    response = post(client, "Gate still closed.")
+    assert response.status_code == 200
+    assert service.state.events[-1].event_type is EventType.GATE_CLOSED
+    assert service.exchanges[-1].reply.mode is ReplyMode.ESCALATE
+    assert not service.exchanges[-1].reply.claims
+    assert "ESCALATE" in client.get("/dispatcher").text
+
+
+def test_claims_have_exact_source_and_actual_weighted_scores(client, service, monkeypatch):
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED, driver_claimed_wait_minutes=80)
+    source = stub_rules(monkeypatch, service)
+    response = post(client, "<script>alert('transcript')</script>")
+    assert "What we recorded" in response.text
+    assert "What the customer’s rules say" in response.text
+    assert "SOP-TEST-001" in response.text
+    assert "Sixty minutes free." in response.text
+    assert "<script>alert" not in response.text
+    assert "&lt;script&gt;" in response.text
+    reply = service.exchanges[-1]
+    assert reply.chunks == (source,)
+    assert reply.assessment.signals == dict(entity_resolution=1, transcript_legible=1, retrieval_score=.8, self_rating=.9)
+    assert reply.assessment.confidence == .93
+    html = client.get("/dispatcher").text
+    assert "SPEAK_HEDGED" in html and "HIGH risk" in html and "0.93" in html
+    assert "80<small> min" in html
+    assert "₹1.50" in html  # exposure still uses 61 observed minutes, not 80 claimed
+
+
+def test_rejected_claim_is_hidden_from_driver_and_explained_on_board(client, service, monkeypatch):
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED)
+    stub_rules(monkeypatch, service, supported=False)
+    response = post(client, "Gate closed.")
+    assert "You have 60 minutes free" not in response.text
+    assert "What the customer’s rules say" not in response.text
+    html = client.get("/dispatcher").text
+    assert "ESCALATE" in html and "Why the draft was withheld" in html
+    assert "The passage does not support this rule" in html
+
+
+def test_check_exception_updates_both_surfaces(client, service, monkeypatch):
+    stub_rules(monkeypatch, service)
+    exception = service.state.exceptions[0]
+    response = client.post(f"/dispatcher/exceptions/{exception.id}/assess", headers={"HX-Request": "true"})
+    assert response.status_code == 200
+    assert "SPEAK_HEDGED" in response.text
+    assert "View source" in client.get("/driver").text
+
+
+def test_approval_is_explicit_idempotent_and_does_not_approve_resolution(client, service):
+    draft = next(iter(service.approvals.values()))
+    assert draft.status == "PENDING"
+    url = f"/dispatcher/approvals/{draft.id}"
+    assert client.get(url).status_code == 405
+    for _ in range(2):
+        assert client.post(url, data={"action": "APPROVED"}).status_code == 200
+    assert draft.status == "APPROVED"
+    assert "Approved · not sent" in client.get("/dispatcher").text
+    assert all(ex.resolution_status.value == "PENDING" for ex in service.state.exceptions)
+    assert "already been reviewed" in client.post(url, data={"action": "REJECTED"}).text
+
+
+def test_closed_exception_cannot_approve_stale_draft(client, service, monkeypatch):
+    draft = next(iter(service.approvals.values()))
+    interpret_as(monkeypatch, service, EventType.SERVICE_STARTED)
+    post(client, "Unloading now.")
+    response = client.post(f"/dispatcher/approvals/{draft.id}", data={"action": "APPROVED"})
+    assert "no longer current" in response.text
+    assert draft.status == "PENDING"
+
+
+def test_input_validation_and_no_javascript_fallback(client, service, monkeypatch):
+    assert "between 1 and 2,000" in post(client, " ").text
+    assert "between 1 and 2,000" in post(client, "x" * 2001).text
+    assert client.post("/driver/messages", content="x" * 17000,
+                       headers={"Content-Type": "application/x-www-form-urlencoded"}).status_code == 413
+    assert client.post("/driver/messages", json={"text": "x"}).status_code == 415
+    interpret_as(monkeypatch, service, EventType.SERVICE_STARTED)
+    assert "<!doctype html>" in post(client, "Unloading started.", htmx=False).text
+
+
+def test_clock_change_during_model_call_cannot_commit_stale_report(service, monkeypatch):
+    def during_interpretation(text):
+        service.advance()
+        return InterpreterOutput(intents=[Intent.REPORT], language=Language.EN,
+                                 event_type=EventType.SERVICE_STARTED)
+    monkeypatch.setattr(service, "interpret", during_interpretation)
+    with pytest.raises(MessageUnavailable, match="shift changed"):
+        service.submit("Unloading now.", str(uuid4()))
+    assert service.state.stop("stop-2").status.value == "ARRIVED"
+    assert not service.exchanges

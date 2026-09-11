@@ -1,0 +1,43 @@
+<div id="driver-updates" hx-get="/driver/updates" hx-trigger="every 5s" hx-swap="outerHTML" hx-sync="#composer:drop"
+     {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <div class="day-stamp"><span>Demo shift · {{ now.strftime('%d %b') }}</span><time datetime="{{ now.isoformat() }}">{{ now.strftime('%H:%M') }} IST</time></div>
+  {% if latest or last_event %}
+  <section class="heard" aria-labelledby="heard-title">
+    <div class="section-label"><h3 id="heard-title">{% if latest and not latest.transcript %}A check-in for you{% else %}What you told us{% endif %}</h3><span>{{ (latest.at if latest else last_event.ingested_at).strftime('%H:%M') }}</span></div>
+    {% if latest %}{% if latest.transcript %}<p class="transcript">“{{ latest.transcript }}”</p>{% else %}<p class="muted">Sarathi noticed something you may need help with.</p>{% endif %}
+    {% else %}<p class="transcript">“{{ last_event.raw_transcript }}”</p>{% endif %}
+  </section>
+  <section class="reply" aria-labelledby="reply-title">
+    <div class="reply-heading"><span class="reply-mark" aria-hidden="true">സ</span><h3 id="reply-title">Sarathi</h3>
+      {% if latest and latest.reply.mode.value != 'SPEAK' %}<span class="pill amber">Checking with the office</span>{% endif %}
+    </div>
+    <p class="reply-text" {% if latest and latest.reply.language.value in ['ml', 'hi'] %}lang="{{ latest.reply.language.value }}"{% endif %}>{{ latest.reply.text if latest else ' '.join(seed_facts) }}</p>
+    <div class="recorded-facts"><h4><span aria-hidden="true">✓</span> What we recorded</h4>
+      <ul>{% for fact in (latest.reply.restated_facts if latest else seed_facts) %}<li>{{ fact }}</li>{% endfor %}</ul>
+    </div>
+    {% if latest and latest.reply.claims %}
+    <div class="customer-rules"><h4><span aria-hidden="true">§</span> What the customer’s rules say</h4><p class="muted">Tap a rule to see where it comes from.</p>
+      {% for claim in latest.reply.claims %}
+      {% set source = latest.chunks | selectattr('id', 'equalto', claim.cited_chunk_id) | first %}
+      <details class="citation" data-detail-key="{{ latest.id }}-{{ loop.index }}">
+        <summary>{{ claim.text }}<span class="source-label">View source <span aria-hidden="true">↗</span></span></summary>
+        <div class="citation-source">{% if source %}<strong>{{ source.source_document }}</strong><blockquote>{{ source.text }}</blockquote>{% else %}<p>The cited passage is unavailable. Ask the office to verify this rule.</p>{% endif %}<small>{{ claim.cited_chunk_id }}</small></div>
+      </details>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% else %}<p class="empty">Your reply will appear here after you send a message.</p>{% endif %}
+  <section class="day-record" aria-labelledby="record-title">
+    <div class="section-label"><h3 id="record-title">Your day, recorded</h3><span>{{ record | length }} entries</span></div>
+    <p class="muted">Everything added to today’s trip, including our check-ins.</p>
+    <ol class="timeline">
+    {% for entry in record %}
+      <li><time datetime="{{ entry.at.isoformat() }}">{{ entry.at.strftime('%H:%M') }}</time><div>{% for fact in entry.facts %}<p>{{ fact }}</p>{% endfor %}
+        {% if entry.occurred_at != entry.at %}<small>Reported as happening at {{ entry.occurred_at.strftime('%H:%M') }}. Recorded at {{ entry.at.strftime('%H:%M') }}.</small>{% endif %}
+        {% if entry.source == 'system' %}<span class="small-label">Added by Sarathi</span>{% endif %}
+      </div></li>
+    {% else %}<li class="empty">Nothing recorded yet. Tell me when you set off.</li>{% endfor %}
+    </ol>
+  </section>
+</div>

@@ -1,0 +1,24 @@
+{% set ex = card.exception %}
+<article class="exception-card" id="{{ ex.id }}">
+  <div class="card-meta"><span class="eyebrow">{{ 'Stop ' ~ card.stop.seq if card.stop else 'This trip' }}</span><span>{{ ex.opened_at.strftime('%H:%M') }} · {{ 'Driver reported' if ex.opened_by == 'driver' else 'Sarathi noticed' }}</span></div>
+  <h3>{{ card.title }}</h3><p class="customer-name">{{ card.customer.name if card.customer else 'Today’s trip' }}</p>
+  <span class="pill {{ 'green' if ex.status.value == 'RESOLVED' else 'amber' }}">{{ ex.status.value | replace('_', ' ') | capitalize }}</span>
+  {% if ex.status.value == 'EXPIRED' %}<p class="muted">Still open when the shift ended. Needs follow-up.</p>{% endif %}
+  {% if card.waiting %}
+  <dl class="wait-comparison"><div><dt>System-observed wait</dt><dd>{{ card.waiting.observed_wait_minutes }}<small> min</small></dd><span>From {{ card.waiting.arrival_observed_at.strftime('%H:%M') }}</span></div>
+    <div><dt>Driver-claimed wait</dt><dd>{% if card.waiting.driver_claimed_wait_minutes is not none %}{{ card.waiting.driver_claimed_wait_minutes }}<small> min</small>{% else %}<span class="not-given">Not stated</span>{% endif %}</dd><span>His reported estimate</span></div></dl>
+  <div class="exposure"><span>{{ card.waiting.free_detention_minutes }} min free<br><strong>{{ card.waiting.billable_minutes }} min billable</strong></span><div><small>Billable exposure</small><strong>{{ card.waiting.exposure_paise | rupees }}</strong></div></div>
+  <p class="billing-note">{{ card.waiting.detention_rate_paise_per_min | rupees }}/min beyond free time. Based on the observed wait.</p>
+  {% else %}<dl class="waiting-empty"><div><dt>System-observed wait</dt><dd>No arrival recorded</dd></div><div><dt>Driver-claimed wait</dt><dd>{{ (card.claimed_wait ~ ' min') if card.claimed_wait is not none else 'Not stated' }}</dd></div><div><dt>Free allowance</dt><dd>{{ (card.customer.free_detention_minutes ~ ' min') if card.customer else 'Not applicable' }}</dd></div><div><dt>Billable exposure</dt><dd>Not running</dd></div></dl>{% endif %}
+  <section class="safety" aria-label="Safety critic score breakdown">
+    <div class="section-label"><h4>Safety critic</h4><span>{{ '%.2f' | format(ex.confidence) if ex.confidence is not none else 'Not assessed' }}</span></div>
+    {% for signal in card.signals %}<div class="signal-row"><span>{{ signal.name }}</span><small>× {{ '%.2f' | format(signal.weight) }}</small><meter min="0" max="1" value="{{ signal.value if signal.value is not none else 0 }}" aria-label="{{ signal.name }}: {{ signal.value if signal.value is not none else 'not assessed' }}"></meter><strong>{{ '%.2f' | format(signal.value) if signal.value is not none else '—' }}</strong></div>{% endfor %}
+    <p class="signal-note">Legibility uses the interpreter’s text signal. Model self-rating contributes at most 0.20.</p>
+    <div class="mode-result"><span>{{ ex.reply_mode.value if ex.reply_mode else 'Mode pending' }}</span><small>{{ (ex.risk ~ ' risk') if ex.risk else 'Risk not assessed' }}</small></div>
+    {% if card.assessment %}<p class="grounding-note">{{ card.assessment.grounded_claims | length }} supported claims · {{ card.assessment.rejected_claims | length }} rejected · checked {{ card.assessed_at.strftime('%H:%M') }}</p>
+      {% if card.assessment.rejected_claims or card.assessment.unclaimed_assertions %}<details class="grounding-details" data-detail-key="{{ ex.id }}-grounding"><summary>Why the draft was withheld</summary>{% for claim, reason in card.assessment.rejected_claims %}<p><strong>{{ claim.text }}</strong><br>{{ reason }}<br><small>{{ claim.cited_chunk_id }}</small></p>{% endfor %}{% for assertion in card.assessment.unclaimed_assertions %}<p>Uncited assertion: {{ assertion }}</p>{% endfor %}</details>{% endif %}
+    {% elif not replay %}<p class="signal-note">No completed model assessment is stored for this reply.</p>{% endif %}
+  </section>
+  {% if ex.resolved_at %}<p class="resolution-note">{{ 'Resolved' if ex.status.value == 'RESOLVED' else 'Shift ended' }} at {{ ex.resolved_at.strftime('%H:%M') }}{% if ex.resolving_event_id %} · progress recorded{% endif %}</p>{% endif %}
+  {% if not replay and ex.status.value in ['OPEN', 'ACTING', 'MONITORING'] %}<form action="/dispatcher/exceptions/{{ ex.id }}/assess" method="post" hx-post="/dispatcher/exceptions/{{ ex.id }}/assess" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:queue all" hx-disabled-elt="find button" hx-indicator="find .htmx-indicator"><button class="secondary full-width" type="submit">{{ 'Check reply again' if card.assessment else 'Check reply & rules' }} <span aria-hidden="true">↗</span></button><p class="htmx-indicator muted" role="status">Retrieving rules and checking the reply…</p></form>{% endif %}
+</article>

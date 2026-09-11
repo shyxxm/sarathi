@@ -1,0 +1,30 @@
+<div id="board" hx-get="/dispatcher/board{% if replay %}?minute={{ minute }}{% endif %}" hx-trigger="every 5s" hx-swap="outerHTML" hx-sync="#main:drop">
+  <div class="board-toolbar"><span class="pill {{ 'amber' if replay else 'green' }}">{{ 'REPLAY' if replay else 'CURRENT SHIFT' }} · {{ now.strftime('%H:%M') }}</span>
+    {% if replay %}<p>Read-only replay · safety checks have not run on fixture events.</p>{% else %}<p>Demo clock paused. Advance it to run the check-ins.</p>
+    <form action="/dispatcher/clock" method="post" hx-post="/dispatcher/clock" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:queue all">
+      <button class="text-button" name="minutes" value="1" {% if minute >= 600 %}disabled{% endif %}>+1 min</button><button class="text-button" name="minutes" value="15" {% if minute >= 600 %}disabled{% endif %}>+15 min</button>
+    </form>{% endif %}
+  </div>
+  {% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}
+  {% if notice %}<p class="notice" role="status">{{ notice }}</p>{% endif %}
+  <div class="columns">
+    <section class="board-column attention"><header class="column-heading"><span class="status-dot"></span><h2>NEEDS ATTENTION</h2><span class="count">{{ attention | length + reviews | length }}</span></header>
+      {% for card in attention %}{% include "partials/exception_card.html" %}{% else %}{% if not reviews %}<div class="empty-column"><span aria-hidden="true">✓</span><h3>A clear stretch.</h3><p>No open exceptions at this time.</p></div>{% endif %}{% endfor %}
+      {% for exchange in reviews %}<article class="exception-card"><span class="eyebrow">Trip clarification · {{ exchange.at.strftime('%H:%M') }}</span><h3>The office needs to check this</h3><p>{{ exchange.transcript }}</p><p>{{ exchange.reply.text }}</p><span class="pill amber">ESCALATE</span></article>{% endfor %}
+    </section>
+    <section class="board-column handled"><header class="column-heading"><span class="status-dot"></span><h2>HANDLED</h2><span class="count">{{ handled | length }}</span></header>
+      {% for card in handled %}{% include "partials/exception_card.html" %}{% else %}<div class="empty-column"><span aria-hidden="true">↗</span><h3>Room for resolutions.</h3><p>Closed exceptions will appear here.</p></div>{% endfor %}
+    </section>
+    <section class="board-column fine"><header class="column-heading"><span class="status-dot"></span><h2>RUNNING FINE</h2><span class="count">{{ fine | length }}</span></header>
+      {% for item in fine %}<article class="fine-card"><span class="eyebrow">Stop {{ item.stop.seq }} · {{ item.stop.window_open.strftime('%H:%M') }}–{{ item.stop.window_close.strftime('%H:%M') }}</span><h3>{{ item.customer.name }}</h3><p><span aria-hidden="true">✓</span> {{ item.status | capitalize }}</p><small>No open exception</small></article>{% else %}<p class="empty">Each stop currently has an exception to review.</p>{% endfor %}
+    </section>
+  </div>
+  <section class="approval-queue" aria-labelledby="approval-title">
+    <header><div><p class="eyebrow">A person gets the final say</p><h2 id="approval-title">Customer message approvals <span class="count">{{ pending_approvals }}</span></h2><p>Review the exact wording. Approval records your decision; this demo does not send messages.</p></div><span class="approval-symbol" aria-hidden="true">↗</span></header>
+    {% if replay %}<p class="empty">Approvals belong to the current shift. Return to it to review a draft.</p>{% else %}
+    {% for approval in approvals %}<article class="approval-row"><div><span class="eyebrow">{{ approval.customer }} · {{ approval.created_at.strftime('%H:%M') }}</span><p class="draft-text">{{ approval.text }}</p></div>
+      {% if approval.status == 'PENDING' and not approval.stale %}<form action="/dispatcher/approvals/{{ approval.id }}" method="post" hx-post="/dispatcher/approvals/{{ approval.id }}" hx-target="#board" hx-swap="outerHTML" hx-sync="#main:queue all" hx-disabled-elt="find button"><button name="action" value="APPROVED">Approve draft</button><button class="secondary" name="action" value="REJECTED">Reject</button></form>
+      {% else %}<span class="pill {{ 'green' if approval.status == 'APPROVED' else 'neutral' }}">{{ 'No longer current' if approval.stale and approval.status == 'PENDING' else approval.status | capitalize }}{% if approval.status == 'APPROVED' %} · not sent{% endif %}</span>{% endif %}
+    </article>{% else %}<p class="empty">No customer messages are waiting for approval.</p>{% endfor %}{% endif %}
+  </section>
+</div>

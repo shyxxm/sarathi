@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173c32">
+  <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
+  <title>{% block title %}Sarathi{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <script src="{{ url_for('static', path='vendor/htmx.min.js') }}" defer></script>
+  <script src="{{ url_for('static', path='app.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/driver" aria-label="Sarathi home"><span class="brand-mark" aria-hidden="true">സ</span> sarathi<span class="brand-dot">.</span></a>
+    <nav aria-label="Pages">
+      <a href="/driver" {% if request.url.path.startswith('/driver') %}aria-current="page"{% endif %}>Your day</a>
+      <a href="/dispatcher" {% if request.url.path.startswith('/dispatcher') %}aria-current="page"{% endif %}>Dispatcher</a>
+    </nav>
+  </header>
+  <div id="connection-error" class="connection-error" role="status" hidden>Connection interrupted. Your text is still here. Please try again.</div>
+  {% block content %}{% endblock %}
+</body>
+</html>
