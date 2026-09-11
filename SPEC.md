@@ -175,8 +175,10 @@ unrelated failure (§2.2): every message is his words to classify, never a
 question put to you. Nothing in it is about gates, negation or frames. m07 went
 from `GATE_CLOSED` to the correct `SERVICE_STARTED` — 3 of 3 on Haiku at
 temperature 0, against 3 of 3 `GATE_CLOSED` on the previous prompt. Then the
-interpreter's reply was prefilled with `{`, also for §2.2, and m07 went back to
-`GATE_CLOSED`, 3 of 3. m10gg moved under neither.
+interpreter's reply was prefilled with `{`, also for §2.2 — tested and declined
+there — and m07 went back to `GATE_CLOSED`, 3 of 3. m10gg moved under neither.
+The shipped prompt has no prefill, so m07 currently reads correctly, for no
+reason anyone can name.
 
 This is not a fix, and m07 is not promoted out of the boundary set. Nothing
 explains why either change reaches this row. It is evidence for how fragile the
@@ -229,18 +231,35 @@ a row out of the score only when the provider did not answer or could not be
 asked; a model answering in prose once sat in the same bucket as a 429, and
 this whole failure class never reached the score.
 
-**The fix for the prose, and what it cost.** A prompt rule — every message is
-his words to classify, never a question put to you — did not stop it: m06q4
-was still answered in prose. Opening the model's reply with `{` did, 3 of 3,
-because Anthropic continues an assistant turn it is handed and prose has
-nowhere to start. It is sent to Anthropic only. Ollama restarts the object
-instead of continuing it, so the brace buys nothing there.
+**Tested, measured and declined: prefilling the reply with `{`.** It looks
+like the obvious fix for a model that answers in prose, and for m06q4 it is
+one. It is not shipped, and this is why.
 
-It cost m08. `over` — the prompt's own example of a legible message with no
-event in it — is read as `CHITCHAT` with the prefill, 3 of 3, and as `REPORT` /
-`UNCLEAR` without it, 3 of 3. As `CHITCHAT` it records an acknowledgement and
-he hears *your message was received*, not *over what?* Nothing is recorded
-wrongly, but he is not asked what he meant. Known, and not yet addressed.
+A prompt rule — every message is his words to classify, never a question put
+to you — did not stop the prose. Opening the model's reply with `{` did,
+because Anthropic continues an assistant turn it is handed and prose has
+nowhere to start. (Ollama restarts the object instead of continuing it, so the
+brace would only ever have gone to Anthropic.) Haiku 4.5, temperature 0,
+11 September 2026:
+
+```
+                                                   with prefill       without
+m06q4  How much free waiting time does this        QUESTION     3/3   prose, not JSON   3/3
+       customer allow?
+m08    over                                        CHITCHAT     3/3   REPORT / UNCLEAR  3/3
+```
+
+m08 is the case the calibration set was built around: a legible message with
+no event in it, which has to get *over what?* As `CHITCHAT` it records an
+acknowledgement and he hears *your message was received* — an ambiguous message
+quietly accepted, the silent guessing §2 exists to prevent. Without the
+prefill, m06q4 fails loudly and honestly: he is told the fault is ours and a
+dispatcher gets his words. **A loud, honest failure that reaches a person beats
+a quiet acknowledgement of an ambiguous message.** So m06q4 stays a failing
+held-out row, handled by the escalation above, until something fixes it
+without costing m08.
+
+The prefill also moved m07 back to `GATE_CLOSED`, 3 of 3 (§2.1).
 
 ---
 

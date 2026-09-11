@@ -350,26 +350,6 @@ def test_an_illegible_question_keeps_its_unresolved_event():
     assert garbled.unresolved_fields == ["event_type"]
 
 
-@pytest.mark.parametrize("model, prefilled", [
-    ("anthropic/claude-haiku-4-5-20251001", True), ("ollama/qwen2.5:7b", False)])
-def test_the_json_prefill_is_sent_only_where_the_provider_continues_it(monkeypatch, model, prefilled):
-    """Anthropic returns only what follows the brace, so it has to be put back.
-    Ollama restarts the object, so it is never sent one."""
-    from app.agents import interpreter
-    sent = []
-    body = '{"intents": ["QUESTION"], "language": "en"}'
-
-    def complete(**kwargs):
-        sent.append(kwargs["messages"])
-        content = body.removeprefix("{") if prefilled else body
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
-
-    monkeypatch.setattr(interpreter.litellm, "completion", complete)
-    output = interpreter.interpret("does the consignee sign the LR?", model=model)
-    assert output.intents == [Intent.QUESTION]
-    assert (sent[0][-1] == {"role": "assistant", "content": "{"}) is prefilled
-
-
 @pytest.mark.parametrize("payload", [
     {"intents": ["QUESTION"], "unresolved_fields": "event_type"},
     {"intents": 1, "unresolved_fields": ["event_type"]},

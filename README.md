@@ -164,8 +164,8 @@ say what we understood to the one person who knows.
 
 This boundary is still open, and fragile. On 11 September a prompt paragraph
 about something unrelated flipped m07 to the correct reading, 3 times out of 3.
-The next change — opening the model's reply with a `{` — flipped it back, 3 out
-of 3. Nothing explains either.
+The next change tried — opening the model's reply with a `{` — flipped it back,
+3 out of 3. Nothing explains either.
 
 ### Similarity ordering is fragile, so it can't enforce the citation rule (SPEC 5.1)
 
@@ -235,9 +235,10 @@ calibration script had hidden this too: a model answering in prose was counted
 alongside a 429 as "provider error, not scored", so this whole class of failure
 never reached the score.
 
-Opening the model's reply with `{` stopped the prose. It cost a different
-message: *over*, which should get *over what?*, is now read as small talk.
-SPEC 2.2 records the trade.
+Opening the model's reply with `{` stops the prose. It was tested and
+declined, because it made *over* — which should get *over what?* — read as
+small talk, 3 times out of 3. A loud, honest failure that reaches a dispatcher
+beats quietly accepting an ambiguous message. SPEC 2.2 has both rows.
 
 ## Licence
 
