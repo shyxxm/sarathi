@@ -3,16 +3,18 @@
   <div class="day-stamp"><span>Demo shift · {{ now.strftime('%d %b') }}</span><time datetime="{{ now.isoformat() }}">{{ now.strftime('%H:%M') }} IST</time></div>
   <div class="exchange-stack">
   {% if latest or last_event %}
+  {# A message that failed has no event, so the last event is not his last message. #}
+  {% set heard = latest if latest and latest.transcript else None %}
   <section class="heard" aria-labelledby="heard-title">
-    <div class="section-label"><h3 id="heard-title">Your last message</h3><span>{{ last_event.ingested_at.strftime('%H:%M') if last_event else '—' }}</span></div>
-    <p class="transcript">{{ last_event.raw_transcript if last_event else 'No message yet.' }}</p>
+    <div class="section-label"><h3 id="heard-title">Your last message</h3><span>{{ heard.at.strftime('%H:%M') if heard else (last_event.ingested_at.strftime('%H:%M') if last_event else '—') }}</span></div>
+    <p class="transcript">{{ heard.transcript if heard else (last_event.raw_transcript if last_event else 'No message yet.') }}</p>
   </section>
   <section class="reply" aria-labelledby="reply-title">
     <div class="reply-heading"><span class="reply-mark" aria-hidden="true">സ</span><h3 id="reply-title">Sarathi answered</h3><time class="muted">{{ latest.at.strftime('%H:%M') if latest else '' }}</time>
-      {% if latest and latest.reply.mode.value != 'SPEAK' %}<span class="pill amber">Checking with the office</span>{% endif %}
+      {% if latest and latest.failure %}<span class="pill amber">Sent to a dispatcher</span>{% elif latest and latest.reply.mode.value != 'SPEAK' %}<span class="pill amber">Checking with the office</span>{% endif %}
     </div>
     <p class="reply-text" {% if latest and latest.reply.language.value in ['ml', 'hi'] %}lang="{{ latest.reply.language.value }}"{% endif %}>{{ latest.reply.text if latest else ' '.join(seed_facts) }}</p>
-    <div class="recorded-facts"><h4><span class="fact-marker">FACTS</span> What we recorded</h4>
+    <div class="recorded-facts"><h4><span class="fact-marker">FACTS</span> {{ 'What happened' if latest and latest.failure else 'What we recorded' }}</h4>
       <ul>{% for fact in (latest.reply.restated_facts if latest else seed_facts) %}<li>{{ fact }}</li>{% endfor %}</ul>
     </div>
     {% if latest and latest.reply.claims %}

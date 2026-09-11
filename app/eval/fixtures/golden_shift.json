@@ -132,6 +132,22 @@
     "note": "Held out, and in English. Same question as m06q2 — a QUESTION with event_type in unresolved_fields escalated both of these to a human and told the driver his message was illegible."
   },
   {
+    "id": "m06q4",
+    "occurred_at": "10:26",
+    "text": "How much free waiting time does this customer allow?",
+    "expected_intents": [
+      "QUESTION"
+    ],
+    "expected_event_type": null,
+    "expected_exception": null,
+    "expected_location_hint": null,
+    "expected_claimed_wait_minutes": null,
+    "expected_unresolved_fields": [],
+    "in_prompt": false,
+    "degradation": "none",
+    "note": "Held out. Clean English policy question. Haiku answered it in prose instead of returning JSON — it took the question as addressed to itself — and the driver was told his message could not be read."
+  },
+  {
     "id": "m07",
     "occurred_at": "11:14",
     "text": "gate thurannu irakkan thudangi",

@@ -50,6 +50,11 @@ class InterpreterOutput(BaseModel):
             return data
         unresolved = data.get("unresolved_fields")
         intents = data.get("intents") or []
+        # Wrong types are left for field validation to refuse. Iterating them
+        # here turned `"event_type"` into ten one-letter unresolved fields, and
+        # `"intents": 1` into a TypeError no caller reads as a bad answer.
+        if not isinstance(unresolved, list) or not isinstance(intents, list):
+            return data
         if not unresolved or EVENT_TYPE not in unresolved:
             return data
         if Intent.REPORT in [Intent(intent) for intent in intents]:

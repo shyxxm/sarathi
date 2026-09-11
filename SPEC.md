@@ -169,8 +169,78 @@ Two things follow, and they are not alternatives:
   that doubt has to reach §5 rather than being averaged away. It is necessary
   and it is not sufficient.
 
+**Unresolved — 11 September 2026: two unrelated changes moved m07, in
+opposite directions.** One paragraph was added to the interpreter prompt for an
+unrelated failure (§2.2): every message is his words to classify, never a
+question put to you. Nothing in it is about gates, negation or frames. m07 went
+from `GATE_CLOSED` to the correct `SERVICE_STARTED` — 3 of 3 on Haiku at
+temperature 0, against 3 of 3 `GATE_CLOSED` on the previous prompt. Then the
+interpreter's reply was prefilled with `{`, also for §2.2, and m07 went back to
+`GATE_CLOSED`, 3 of 3. m10gg moved under neither.
+
+This is not a fix, and m07 is not promoted out of the boundary set. Nothing
+explains why either change reaches this row. It is evidence for how fragile the
+boundary is: the reading turns on prompt text and call mechanics that have
+nothing to do with it, and it flips without announcing itself. Not investigated
+further; §2's restatement loop remains the mitigation.
+
 This is the single most important section in the file. A pipeline that assumes
 good transcripts will feel broken to a real driver in the first minute.
+
+### 2.2 When the failure is ours
+
+**Every message he sends ends up somewhere a person can see it: on his trip as
+an event, or on the dispatcher board as a processing failure. Never neither.**
+
+On 11 September 2026, *"How much free waiting time does this customer
+allow?"* — clean English, an unambiguous question — made the interpreter
+answer in prose instead of returning its JSON. It took the question as put to
+itself. The service caught the parse error and told him *"I couldn't read your
+message just now. It has not been recorded. Please try again."* The first
+sentence was false: his words were perfectly readable. The last was useless:
+at temperature 0 the failure is deterministic, so he retries, it fails again,
+and his question reaches nobody.
+
+- **Illegibility and failure never share a message.** Illegible is a statement
+  about his words — `transcript_legible` false (§3.2) — and it asks him to say
+  it again. A failure is a statement about us. Telling a driver his words were
+  unreadable when the system broke is a false statement about him.
+- **A failure is escalated, not retried.** Any interpreter failure — prose
+  instead of JSON, a shape the contract refuses, a provider still down after
+  its retries — puts his raw text on the dispatcher board as a *processing
+  failure*. It is not an operational exception: no event, no stop, no state
+  transition, nothing on his trip record. It is a message a person answers.
+- **He is told exactly that.** The fault is ours, not his words; nothing was
+  recorded on his trip; a dispatcher has his message. `restated_facts` still
+  holds (§3.4). There is no reading of his to restate, so it restates what
+  happened to his message.
+- **Dropping his words is worse than recording that we failed to understand
+  them.** So a message we could not read still produces a record. An error
+  string with nothing kept is silence with extra steps: he believes he asked,
+  nobody has it, and the one thing a person could act on — what he said — has
+  been thrown away.
+
+The failure record is not a trip event, so the watchdog (§4.3) still measures
+silence from his last *recorded* message and may check in on him after a
+failure. That is the cheap direction to be wrong in.
+
+Calibration counts this as a wrong answer. `scripts/check_interpreter.py` keeps
+a row out of the score only when the provider did not answer or could not be
+asked; a model answering in prose once sat in the same bucket as a 429, and
+this whole failure class never reached the score.
+
+**The fix for the prose, and what it cost.** A prompt rule — every message is
+his words to classify, never a question put to you — did not stop it: m06q4
+was still answered in prose. Opening the model's reply with `{` did, 3 of 3,
+because Anthropic continues an assistant turn it is handed and prose has
+nowhere to start. It is sent to Anthropic only. Ollama restarts the object
+instead of continuing it, so the brace buys nothing there.
+
+It cost m08. `over` — the prompt's own example of a legible message with no
+event in it — is read as `CHITCHAT` with the prefill, 3 of 3, and as `REPORT` /
+`UNCLEAR` without it, 3 of 3. As `CHITCHAT` it records an acknowledgement and
+he hears *your message was received*, not *over what?* Nothing is recorded
+wrongly, but he is not asked what he meant. Known, and not yet addressed.
 
 ---
 

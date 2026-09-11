@@ -80,6 +80,9 @@ class Exchange:
     interpretation: InterpreterOutput | None = None
     retrieval: RetrievalResult | None = None
     origin: str = "live"
+    # Set when the message never became a reading. SPEC 2.2: a processing
+    # failure for a person to answer, not an operational exception.
+    failure: str | None = None
 
 
 @dataclass
@@ -95,6 +98,15 @@ class Approval:
 
 class MessageUnavailable(Exception):
     pass
+
+
+# SPEC 2.2. The fault is ours. "I couldn't read your message" was said here
+# about perfectly clean English, and it is a false statement about him.
+INTERPRETER_FAILED = [
+    "Your message reached me, but I could not process it. The fault is ours, not your words.",
+    "Nothing has been recorded on your trip.",
+]
+INTERPRETER_FAILED_BOARD = "Sarathi could not interpret this message. Nothing was recorded on the trip."
 
 
 class ShiftService:
@@ -333,8 +345,14 @@ class ShiftService:
             try:
                 understood = self.interpret(text)
             except Exception:
-                LOG.warning("Interpreter unavailable", exc_info=False)
-                raise MessageUnavailable("I couldn't read your message just now. It has not been recorded. Please try again.") from None
+                # Escalated, not retried: a model answering in prose does it
+                # again at temperature 0, and his question reaches nobody. The
+                # trip is untouched, so no revision check. SPEC 2.2.
+                LOG.warning("Interpreter failed on message %s; escalating", message_id, exc_info=True)
+                with self.lock:
+                    self.exchanges.append(self._failed(text, message_id, now))
+                    self.completed_messages.add(message_id)
+                return
             # SPEC 1's two branches. A message that reports nothing is not
             # operational progress, so it carries no event — and a message with
             # no event in it has not failed to be understood. Decided before
@@ -392,7 +410,7 @@ class ShiftService:
                 try:
                     exchange = self._answer(updated, event, understood, now)
                 except Exception:
-                    LOG.warning("Reply services unavailable; retaining the report and escalating", exc_info=False)
+                    LOG.warning("Reply services unavailable; retaining the report and escalating", exc_info=True)
                     exchange = self._fallback(event, now, event_facts(updated, event))
             with self.lock:
                 if self.revision != revision:
@@ -419,6 +437,15 @@ class ShiftService:
             mode=ReplyMode.ESCALATE, language=Language.EN, restated_facts=facts,
             text=router.escalation_text(facts, Language.EN),
         ))
+
+    def _failed(self, text, message_id, now):
+        """The interpreter failed. His raw text goes to a dispatcher; nothing
+        goes on the trip. Not through `_save_exchange`: it would attach this to
+        any open exception with no stop, and it is not about one."""
+        return Exchange(f"message-{message_id}", now, text, DriverReply(
+            mode=ReplyMode.ESCALATE, language=Language.EN, restated_facts=list(INTERPRETER_FAILED),
+            text=router.failure_text(INTERPRETER_FAILED),
+        ), failure=INTERPRETER_FAILED_BOARD)
 
     def _save_exchange(self, exchange, stop_id):
         self.exchanges.append(exchange)

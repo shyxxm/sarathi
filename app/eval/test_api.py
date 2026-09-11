@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.agents import responder, safety_critic
+from app.agents.interpreter import InterpreterError
 from app.api.main import create_app
 from app.api.service import MessageUnavailable, ShiftService, waiting_at
 from app.api.views import context
@@ -130,17 +131,48 @@ def test_rejected_transition_keeps_status_and_does_not_claim_it_was_recorded(cli
     assert "I already have" in service.exchanges[-1].reply.text
 
 
-def test_failed_interpretation_retains_text_and_does_not_record(client, service, monkeypatch):
+def test_failed_interpretation_is_escalated_not_blamed_on_his_words(client, service, monkeypatch):
+    """SPEC 2.2. The fault is ours, and it fails the same way on retry, so he
+    is not asked to retry. A dispatcher gets his raw text; the trip is untouched."""
     def fail(text):
         raise RuntimeError("provider token must not be exposed")
     monkeypatch.setattr(service, "interpret", fail)
     before = service.state
-    response = post(client, "Reached the gate.")
-    assert "It has not been recorded" in response.text
+    message_id = str(uuid4())
+    for _ in range(2):
+        response = post(client, "Reached the gate.", message_id)
+    reply = service.exchanges[-1].reply
+    assert reply.mode is ReplyMode.ESCALATE
+    assert "The fault is ours, not your words" in reply.text
+    assert "A dispatcher has your message" in reply.text
+    assert "couldn't read" not in reply.text and "try again" not in reply.text
+    assert "Nothing has been recorded on your trip." in response.text
     assert "Reached the gate." in response.text
     assert "provider token" not in response.text
     assert service.state is before
+    assert len(service.exchanges) == 1
     assert not service.pending_messages
+    html = client.get("/dispatcher").text
+    assert "Processing failure" in html and "Reached the gate." in html
+    assert "provider token" not in html
+
+
+def test_a_prose_answer_and_an_illegible_message_never_share_a_reply(client, service, monkeypatch):
+    """The regression. The model answered a clean English question in prose and
+    the driver was told his message could not be read. Illegible is a statement
+    about his words; a failure is a statement about us."""
+    def prose(text):
+        raise InterpreterError("Not JSON: I cannot answer that question.")
+    monkeypatch.setattr(service, "interpret", prose)
+    post(client, "How much free waiting time does this customer allow?")
+    failed = service.exchanges[-1]
+    monkeypatch.setattr(service, "interpret", lambda text: InterpreterOutput(
+        intents=[Intent.REPORT], language=Language.EN, transcript_legible=False))
+    post(client, "sdkjfh skdjfh")
+    illegible = service.exchanges[-1]
+    assert failed.failure and not illegible.failure
+    assert "fault is ours" in failed.reply.text and "could not make out" not in failed.reply.text
+    assert "could not make out" in illegible.reply.text and "fault is ours" not in illegible.reply.text
 
 
 def test_missing_sop_service_retains_report_and_escalates(client, service, monkeypatch):

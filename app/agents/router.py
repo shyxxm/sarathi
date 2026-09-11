@@ -104,6 +104,17 @@ def escalation_text(facts: list[str], language: Language) -> str:
     return f"{opening.format(facts='; '.join(facts))} {closing}"
 
 
+FAILURE_CLOSING = "A dispatcher has your message and will get back to you."
+
+
+def failure_text(facts: list[str]) -> str:
+    """SPEC 2.2: the interpreter failed, so there is no reading of his to
+    restate — only what happened to his message, and who has it now. Not
+    "Recorded:", because nothing was. English, for the reason `_fallback`
+    gives: the facts are."""
+    return f"{' '.join(facts)} {FAILURE_CLOSING}"
+
+
 def route(
     draft: ResponderOutput,
     assessment: Assessment,

@@ -52,6 +52,19 @@ TRANSIENT = (
 )
 ATTEMPTS = 4
 
+# Anthropic continues an assistant turn it is handed, so opening the turn with
+# "{" leaves prose nowhere to start. m06q4 was answered in prose on every run
+# with JSON mode on and a prompt rule against it, and in JSON on every run with
+# the brace. Ollama (qwen2.5) does not continue a prefill — it starts a new
+# object, fenced when JSON mode is off — so the brace buys nothing there and is
+# not sent. It costs m08: `over` reads as CHITCHAT with the brace and as
+# REPORT / UNCLEAR without it, 3 of 3 each way. SPEC 2.2 has both.
+PREFILL = "{"
+
+
+def prefills(model: str) -> bool:
+    return model.startswith("anthropic/")
+
 
 @cache
 def system_prompt() -> str:
@@ -74,19 +87,26 @@ def interpret(transcript: str, *, model: str | None = None) -> InterpreterOutput
             transcript_legible=False, unresolved_fields=["event_type"],
         )
 
-    response = _complete(transcript, model or cheap_model())
-    return _parse(response.choices[0].message.content or "", transcript)
+    model = model or cheap_model()
+    content = _complete(transcript, model).choices[0].message.content or ""
+    # The provider returns only what came after the brace we sent.
+    if prefills(model) and not content.lstrip().startswith(PREFILL):
+        content = PREFILL + content
+    return _parse(content, transcript)
 
 
 def _complete(transcript: str, model: str):
+    messages = [
+        {"role": "system", "content": system_prompt()},
+        {"role": "user", "content": transcript},
+    ]
+    if prefills(model):
+        messages.append({"role": "assistant", "content": PREFILL})
     for attempt in range(ATTEMPTS):
         try:
             return litellm.completion(
                 model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt()},
-                    {"role": "user", "content": transcript},
-                ],
+                messages=messages,
                 temperature=0.0,
                 response_format={"type": "json_object"},
             )

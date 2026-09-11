@@ -23,7 +23,28 @@ ROOT = Path(__file__).resolve().parents[1]
 if __package__ in (None, ""):
     sys.path.insert(0, str(ROOT))
 
-from app.agents.interpreter import cheap_model, interpret, system_prompt  # noqa: E402
+import inspect  # noqa: E402
+
+import litellm  # noqa: E402
+
+from app.agents import interpreter  # noqa: E402
+from app.agents.interpreter import TRANSIENT, cheap_model, interpret, system_prompt  # noqa: E402
+
+# The only rows kept out of the score: the provider did not answer (TRANSIENT,
+# after interpret's own retries), or could not be asked at all — keys, model
+# name, spend, a parameter the model does not take. Those fail every row alike.
+# Everything else is the model answering and getting it wrong: prose instead
+# of JSON, a shape the contract refuses, a policy block on his words.
+#
+# Named, not caught-all. The catch-all is how a model answering in prose sat
+# in the same bucket as a 429 and a whole failure class never reached the score.
+NOT_ANSWERED = TRANSIENT + (
+    litellm.exceptions.AuthenticationError,
+    litellm.exceptions.PermissionDeniedError,
+    litellm.exceptions.NotFoundError,
+    litellm.exceptions.BudgetExceededError,
+    litellm.exceptions.UnsupportedParamsError,
+)
 
 GOLDEN_PATH = ROOT / "app/eval/fixtures/golden_shift.json"
 LOCAL_DEFAULT = "ollama/qwen2.5:7b"
@@ -40,8 +61,14 @@ def fingerprint(case: dict, model: str) -> str:
     The prompt is in here, so editing prompts/interpreter.md invalidates every
     row — which is exactly when you want fresh calls, and exactly when a stale
     score would be worst.
+
+    So is the interpreter's own source. Adding the JSON prefill changed how
+    every call is made without touching the prompt, and the first scored run
+    after it replayed 23 cached answers from the old call shape and called
+    nothing.
     """
-    material = "\0".join([system_prompt(), model, case["id"], case["text"]])
+    material = "\0".join([system_prompt(), inspect.getsource(interpreter), model,
+                          case["id"], case["text"]])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
 
@@ -109,11 +136,14 @@ def grade(case: dict, output) -> bool | None:
 def run_one(case: dict, model: str) -> dict:
     try:
         output, error = interpret(case["text"], model=model), None
+        ok = grade(case, output)
+    except NOT_ANSWERED as exc:
+        output, error, ok = None, f"{type(exc).__name__}: {exc}"[:120], None
     except Exception as exc:                                  # noqa: BLE001
-        output, error = None, f"{type(exc).__name__}: {exc}"[:120]
+        output, error, ok = None, f"{type(exc).__name__}: {exc}"[:120], False
     return {
         **case,
-        "ok": grade(case, output),
+        "ok": ok,
         "error": error,
         "got_intents": [intent.value for intent in output.intents] if output else [],
         "got_event": (output.event_type.value if output.event_type else None) if output else None,
@@ -206,8 +236,9 @@ def main() -> int:
         called += 1
         print(f"  {case['id']}", end="\r", file=sys.stderr)
         rows.append(row)
-        if row["error"] is None:
-            # Only answers are cached. A 503 is not a result.
+        if row["ok"] is not None:
+            # Only answers are cached — a wrong one included. A 503 is not a
+            # result; prose instead of JSON is.
             cache[case["id"]] = {"fingerprint": fingerprint(case, model),
                                  "row": {key: row[key] for key in RECORDED}}
             save_cache(model, cache)
@@ -262,6 +293,8 @@ def main() -> int:
         expected = ("UNCLEAR / legible=False" if row["degradation"] == "destroyed"
                     else f"{'+'.join(row['expected_intents'])} / {row['expected_event_type']}")
         print(f"      expected {expected}")
+        if row.get("error"):
+            print(f"      error    {row['error']}")
         if row.get("note"):
             print(f"      why      {row['note']}")
     return 0
