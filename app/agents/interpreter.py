@@ -16,6 +16,7 @@ import litellm
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from app import tracing
 from app.contracts.enums import EventType, Intent
 from app.contracts.event import InterpreterOutput
 
@@ -74,8 +75,12 @@ def interpret(transcript: str, *, model: str | None = None) -> InterpreterOutput
             transcript_legible=False, unresolved_fields=["event_type"],
         )
 
-    response = _complete(transcript, model or cheap_model())
-    return _parse(response.choices[0].message.content or "", transcript)
+    model = model or cheap_model()
+    with tracing.observe("interpreter", as_type="generation", model=model, input=transcript) as call:
+        response = _complete(transcript, model)
+        content = response.choices[0].message.content or ""
+        call.record(lambda: {"output": content, "usage_details": tracing.usage(response)})
+        return _parse(content, transcript)
 
 
 def _complete(transcript: str, model: str):

@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 import pytest
 
+from app import tracing
 from app.agents import responder, safety_critic
 from app.agents.interpreter import InterpreterError
 from app.api.main import create_app
@@ -400,3 +401,48 @@ def test_driver_seed_shows_last_message_answer_sources_and_complete_record(clien
     for event in service.state.events:
         assert event.ingested_at.strftime('%H:%M') in html
     assert 'You tell us' not in html and 'eyebrow' not in html
+
+
+def test_one_trace_per_message_tagged_with_what_finds_it(client, service, monkeypatch, langfuse):
+    """SPEC 7.1. The whole message as one tree, found by its message id, with
+    the router's decision on it — and no user id, because Langfuse would build
+    a per-driver view out of one (rule 1)."""
+    interpret_as(monkeypatch, service, EventType.GATE_CLOSED)
+    stub_rules(monkeypatch, service)
+    message_id = str(uuid4())
+    post(client, "gate ippozhum adachirikkuva", message_id)
+
+    root = langfuse.named("driver message")
+    assert root.parent is None and root.trace_context == {"trace_id": f"trace-{message_id}"}
+    assert [node.name for node in langfuse.observations] == [
+        "driver message", "identity", "safety critic", "router"]
+    assert all(node.parent == "driver message" for node in langfuse.observations[1:])
+    tags = set().union(*(attributes["tags"] for attributes in langfuse.attributes))
+    assert {"trip:trip-1", f"message:{message_id}", "stop:stop-2"} <= tags
+    assert any(tag.startswith("exception:") for tag in tags)
+    assert {attributes["session_id"] for attributes in langfuse.attributes} == {"trip-1"}
+    assert not any(attributes.get("user_id") for attributes in langfuse.attributes)
+
+    decision, reply = langfuse.named("router").fields["output"], service.exchanges[-1]
+    assert decision["mode"] == reply.reply.mode.value
+    assert decision["confidence"] == reply.assessment.confidence
+    assert set(decision["signals"]) == set(safety_critic.WEIGHTS)
+    assert decision["weakest"] == min(decision["signals"], key=decision["signals"].get)
+    assert root.trace_io["output"] == reply.reply.text
+
+
+@pytest.mark.parametrize("broken", ["exploding", "brittle"])
+def test_a_broken_langfuse_changes_nothing(monkeypatch, broken_langfuse, broken):
+    """SPEC 7.1: traces are best effort, never load bearing. The same message
+    with Langfuse off and with Langfuse raising gives the same reply, the same
+    record and the same exceptions."""
+    def run(backend):
+        monkeypatch.setattr(tracing, "_load", lambda: backend)
+        shift = ShiftService()
+        interpret_as(monkeypatch, shift, EventType.GATE_CLOSED, driver_claimed_wait_minutes=80)
+        stub_rules(monkeypatch, shift)
+        shift.submit("gate ippozhum adachirikkuva", "7c9e6679-7425-40de-944b-e07fc1f90ae7")
+        return shift.exchanges[-1].reply, shift.state.events, shift.state.exceptions
+
+    fake = broken_langfuse[broken]
+    assert run(None) == run((fake, fake.propagate))

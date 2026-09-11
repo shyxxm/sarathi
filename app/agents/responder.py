@@ -22,6 +22,7 @@ import time
 
 from pydantic import ValidationError
 
+from app import tracing
 from app.contracts.enums import EventType, Intent, Language
 from app.contracts.event import InterpreterOutput
 from app.contracts.exception import OperationalException
@@ -241,8 +242,12 @@ def assemble(
 
 def respond(context: ResponderContext, *, model: str | None = None) -> ResponderOutput:
     """Draft the reply. Raises rather than returning something unspeakable."""
-    response = _complete(context.render(), model or strong_model())
-    return _parse(response.choices[0].message.content or "", context)
+    rendered, model = context.render(), model or strong_model()
+    with tracing.observe("responder", as_type="generation", model=model, input=rendered) as call:
+        response = _complete(rendered, model)
+        content = response.choices[0].message.content or ""
+        call.record(lambda: {"output": content, "usage_details": tracing.usage(response)})
+        return _parse(content, context)
 
 
 def _complete(rendered: str, model: str):

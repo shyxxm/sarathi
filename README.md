@@ -108,6 +108,17 @@ docker compose up -d         # Postgres + pgvector
 uv run python scripts/index_sops.py
 ```
 
+Tracing is optional. Set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` in
+`.env` (any `pk-lf-…` / `sk-lf-…` pair you choose), then:
+
+```sh
+docker compose --profile tracing up -d   # Langfuse on http://localhost:3100
+```
+
+That project and its keys are created on first start, in Langfuse's own
+Postgres. Every driver message is one trace, found by its message id. If
+Langfuse is down, Sarathi runs unchanged.
+
 All models go through LiteLLM, so any provider works. The interpreter
 calibration set runs against a local Ollama model by default, unmetered and
 not a quality signal. Add `--score` to run it on the configured cheap tier:

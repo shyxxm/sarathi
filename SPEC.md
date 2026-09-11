@@ -1073,6 +1073,30 @@ FINE — plus the approval queue and a clock slider replaying the shift.
 No fleet map. No driver leaderboard. No per-driver history view. Their absence
 is a design position, stated in the README.
 
+### 7.1 Traces
+
+One Langfuse trace per inbound driver message, its id derived from the message
+id. Under it: the interpreter, retrieval, responder and grounding calls, the
+safety critic's assessment, identity resolution, and the router's decision —
+mode, composite confidence, the four signals, the weakest of them, and why it
+routed that way. A dispatcher's live safety check is a trace of its own. There
+is no decision agent yet (§1, node 4); the decision code drafts is recorded with
+the router's.
+
+Tags: `trip:`, `stop:` and `exception:` where one exists, and `message:`. The
+session is the trip.
+
+- **Best effort, never load bearing.** Unreachable, misconfigured or raising,
+  Langfuse changes nothing. Every SDK call is wrapped, and so is the code that
+  builds what gets recorded. The suite runs one message with Langfuse off and
+  with a client that raises on every call, and asserts the same reply, the same
+  record and the same exceptions.
+- **No `user_id`, ever.** Langfuse builds a per-user view out of it — a
+  per-driver history by another name (CLAUDE.md rule 1). Traces attach to
+  trips and messages, as exceptions do.
+- **Its own database.** `docker compose --profile tracing up -d` runs Langfuse
+  on its own Postgres. Traces and operational truth never share one.
+
 ---
 
 ## 8. Scope

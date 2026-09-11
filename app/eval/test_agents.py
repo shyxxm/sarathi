@@ -361,3 +361,36 @@ def test_a_wrongly_typed_answer_is_refused_not_misread(payload):
     TypeError that no caller reads as a bad answer. Both are refused now."""
     with pytest.raises(ValidationError):
         InterpreterOutput.model_validate({"language": "en", **payload})
+
+
+def test_a_model_call_is_a_generation_inside_the_message_trace_and_nowhere_else(monkeypatch, langfuse):
+    """SPEC 7.1. Inside a trace the call is recorded with what it was sent and
+    what came back — a failed parse marked, not hidden. Outside one, as in a
+    calibration run, nothing is recorded at all."""
+    from app import tracing
+    from app.agents import interpreter
+    from app.agents.interpreter import InterpreterError
+
+    def answering(content):
+        return lambda **kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+            usage=SimpleNamespace(prompt_tokens=900, completion_tokens=40))
+
+    body = '{"intents": ["QUESTION"], "language": "en"}'
+    monkeypatch.setattr(interpreter.litellm, "completion", answering(body))
+    interpreter.interpret("does the consignee sign the LR?", model="anthropic/test")
+    assert langfuse.observations == []
+
+    with tracing.trace("driver message", seed="m-1", trip_id="trip-1", message_id="m-1"):
+        interpreter.interpret("does the consignee sign the LR?", model="anthropic/test")
+    call = langfuse.named("interpreter")
+    assert (call.parent, call.fields["as_type"], call.fields["model"]) == (
+        "driver message", "generation", "anthropic/test")
+    assert call.fields["input"] == "does the consignee sign the LR?"
+    assert call.fields["output"] == body
+    assert call.fields["usage_details"] == {"input": 900, "output": 40}
+
+    monkeypatch.setattr(interpreter.litellm, "completion", answering("I cannot answer that."))
+    with pytest.raises(InterpreterError), tracing.trace("driver message", seed="m-2"):
+        interpreter.interpret("How much free waiting time does this customer allow?", model="anthropic/test")
+    assert langfuse.named("interpreter").fields["level"] == "ERROR"

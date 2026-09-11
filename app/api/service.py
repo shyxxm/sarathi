@@ -10,6 +10,7 @@ from pathlib import Path
 from threading import RLock
 from uuid import uuid4
 
+from app import tracing
 from app.agents import responder, router, safety_critic
 from app.contracts.decision import ActionType, Decision, DecisionAction
 from app.contracts.enums import EventType, Intent, Language, ReplyMode
@@ -67,6 +68,33 @@ def record(state: TripState, event: OperationalEvent, now: datetime):
         return state, outcome
     updated = updated.with_exceptions(exception_rules.evaluate(updated, event, now).changed)
     return updated.with_exceptions(resolution.close_matching(updated, event, now)), outcome
+
+
+def _trace_route(trace, exchange, why, state=None, stop_id=None):
+    """SPEC 7.1: the router's decision, on the trace. When a reply looks wrong
+    this is the first thing anyone wants — what it routed on, and why."""
+    def decision():
+        assessment = exchange.assessment
+        fields = {"mode": exchange.reply.mode.value, "why": why}
+        if assessment is not None:
+            fields.update(
+                confidence=assessment.confidence, risk=assessment.risk, signals=assessment.signals,
+                weakest=min(assessment.signals, key=assessment.signals.get),
+                grounding_ran=assessment.grounding_ran,
+                grounded_claims=[claim.text for claim in assessment.grounded_claims],
+                rejected_claims=[{"claim": claim.text, "why": reason}
+                                 for claim, reason in assessment.rejected_claims],
+                unclaimed_assertions=list(assessment.unclaimed_assertions),
+            )
+        opened = next((ex for ex in (state.exceptions if state else ())
+                       if ex.stop_id == stop_id and resolution.is_open(ex) and ex.decision), None)
+        if opened:
+            fields["decision"] = {"actions": [action.type.value for action in opened.decision.actions],
+                                  "by": "code; there is no decision agent yet"}
+        return fields
+
+    tracing.event("router", lambda: {"output": decision()})
+    trace.finish(lambda: {"output": exchange.reply.text, "metadata": {"router": decision()}})
 
 
 @dataclass(frozen=True)
@@ -294,11 +322,18 @@ class ShiftService:
         # His words only. The resolved stop is not handed over: it is how code
         # found the corpus, not anything he said, and embedding it cost more
         # than the whole citation margin (SPEC 5.1).
-        return self._retriever.retrieve(
-            customer_id=stop.customer_id,
-            situation=event.raw_transcript or EVENT_WORDS[event.event_type],
-            question=understood.question_text,
-        )
+        situation = event.raw_transcript or EVENT_WORDS[event.event_type]
+        with tracing.observe("retrieval", as_type="retriever",
+                             input={"situation": situation, "question": understood.question_text}) as span:
+            result = self._retriever.retrieve(
+                customer_id=stop.customer_id, situation=situation, question=understood.question_text,
+            )
+            span.record(lambda: {"output": {
+                "relevance_floor": result.relevance_floor, "retrieval_score": result.retrieval_score,
+                "sop_chunks": [{"id": chunk.id, "score": round(chunk.score, 4)} for chunk in result.sop_chunks],
+                "cited": [chunk.id for chunk in result.cited_sop_chunks],
+            }})
+            return result
 
     def interpret(self, text):
         from app.agents.interpreter import interpret
@@ -342,87 +377,108 @@ class ShiftService:
             self.pending_messages.add(message_id)
             state, now, revision = self.state, self.now, self.revision
         try:
-            try:
-                understood = self.interpret(text)
-            except Exception:
-                # Escalated, not retried: a model answering in prose does it
-                # again at temperature 0, and his question reaches nobody. The
-                # trip is untouched, so no revision check. SPEC 2.2.
-                LOG.warning("Interpreter failed on message %s; escalating", message_id, exc_info=True)
-                with self.lock:
-                    self.exchanges.append(self._failed(text, message_id, now))
-                    self.completed_messages.add(message_id)
-                return
-            # SPEC 1's two branches. A message that reports nothing is not
-            # operational progress, so it carries no event — and a message with
-            # no event in it has not failed to be understood. Decided before
-            # identity resolution rather than after, so the resolver is looking
-            # at the event type this message actually has.
-            reported = Intent.REPORT in understood.intents
-            event_type = (understood.event_type or EventType.UNCLEAR) if reported \
-                else EventType.ACKNOWLEDGEMENT
-            event = identity.resolve(OperationalEvent(
-                id=f"message-{message_id}", source_message_id=message_id, source="driver",
-                occurred_at=now, ingested_at=now, raw_transcript=text,
-                event_type=event_type,
-                language=understood.language, location_hint=understood.location_hint,
-                driver_claimed_wait_minutes=understood.driver_claimed_wait_minutes,
-                unresolved_fields=list(understood.unresolved_fields),
-            ), state)
-            # Departing a completed stop is resolved from the last report, before the
-            # resolver's next-pending-stop fallback can mistake it for depot departure.
-            last = state.last_driver_event()
-            if (event.event_type is EventType.DEPARTED and last and not event.location_hint
-                    and state.stop(last.stop_id) and state.stop(last.stop_id).status in FINISHED):
-                event = event.model_copy(update={"stop_id": last.stop_id})
-            # Each of these is a fact about the message and nothing else. The
-            # sentence saying a person is looking at it is added once, by the
-            # router, in `_fallback` — not here as well.
-            issue = None
-            if Intent.CORRECTION in understood.intents or understood.contradicts_recent_state:
-                issue = "You asked to correct the record. Your earlier record is unchanged for now."
-            elif event.unresolved_fields or not understood.transcript_legible:
-                issue = "I could not make out what happened or which stop this is about."
-            if issue:
-                event = event.model_copy(update={"event_type": EventType.UNCLEAR})
-            updated, outcome = record(state, event, now)
-            if isinstance(outcome, Rejected):
-                issue = outcome.reason
-                event = outcome.unclear_event
-                updated, _ = record(state, event, now)
-            understood = understood.model_copy(update={"unresolved_fields": list(event.unresolved_fields)})
-            if issue:
-                exchange = self._fallback(event, now, [issue])
-            elif event.event_type not in exception_rules.OPENS and Intent.QUESTION not in understood.intents:
-                facts = event_facts(updated, event)
-                exchange = Exchange(event.id, now, text, DriverReply(
-                    mode=ReplyMode.SPEAK, language=Language.EN,
-                    text=" ".join(facts), restated_facts=facts))
-            else:
-                # Queue the proposed outbound action in the critic's context so it
-                # contributes HIGH risk before routing. Nothing is sent here.
-                updated = updated.with_exceptions([
-                    ex.model_copy(update={"decision": ex.decision or Decision(
-                        actions=[DecisionAction(type=ActionType.DRAFT_CUSTOMER_MESSAGE)],
-                        rationale="Dispatcher review required before contacting the customer.")})
-                    for ex in updated.exceptions if resolution.is_open(ex) and ex.stop_id == event.stop_id
-                ])
-                try:
-                    exchange = self._answer(updated, event, understood, now)
-                except Exception:
-                    LOG.warning("Reply services unavailable; retaining the report and escalating", exc_info=True)
-                    exchange = self._fallback(event, now, event_facts(updated, event))
-            with self.lock:
-                if self.revision != revision:
-                    raise MessageUnavailable("The shift changed while I read this. Your message has not been recorded. Please send it again.")
-                self.state = updated
-                self._save_exchange(exchange, event.stop_id)
-                self._queue_drafts()
-                self.completed_messages.add(message_id)
-                self.revision += 1
+            # One trace per message, found by its id (SPEC 7.1). `tracing`
+            # swallows its own failures: this cannot change what happens to
+            # his message.
+            with tracing.trace("driver message", seed=message_id, input=text,
+                               trip_id=state.trip_id, message_id=message_id) as trace:
+                self._process(text, message_id, state, now, revision, trace)
         finally:
             with self.lock:
                 self.pending_messages.discard(message_id)
+
+    def _process(self, text, message_id, state, now, revision, trace):
+        try:
+            understood = self.interpret(text)
+        except Exception as error:
+            # Escalated, not retried: a model answering in prose does it
+            # again at temperature 0, and his question reaches nobody. The
+            # trip is untouched, so no revision check. SPEC 2.2.
+            LOG.warning("Interpreter failed on message %s; escalating", message_id, exc_info=True)
+            exchange = self._failed(text, message_id, now)
+            _trace_route(trace, exchange, f"interpreter failed ({type(error).__name__}): "
+                                          "processing failure, sent to a dispatcher")
+            with self.lock:
+                self.exchanges.append(exchange)
+                self.completed_messages.add(message_id)
+            return
+        # SPEC 1's two branches. A message that reports nothing is not
+        # operational progress, so it carries no event — and a message with
+        # no event in it has not failed to be understood. Decided before
+        # identity resolution rather than after, so the resolver is looking
+        # at the event type this message actually has.
+        reported = Intent.REPORT in understood.intents
+        event_type = (understood.event_type or EventType.UNCLEAR) if reported \
+            else EventType.ACKNOWLEDGEMENT
+        event = identity.resolve(OperationalEvent(
+            id=f"message-{message_id}", source_message_id=message_id, source="driver",
+            occurred_at=now, ingested_at=now, raw_transcript=text,
+            event_type=event_type,
+            language=understood.language, location_hint=understood.location_hint,
+            driver_claimed_wait_minutes=understood.driver_claimed_wait_minutes,
+            unresolved_fields=list(understood.unresolved_fields),
+        ), state)
+        # Departing a completed stop is resolved from the last report, before the
+        # resolver's next-pending-stop fallback can mistake it for depot departure.
+        last = state.last_driver_event()
+        if (event.event_type is EventType.DEPARTED and last and not event.location_hint
+                and state.stop(last.stop_id) and state.stop(last.stop_id).status in FINISHED):
+            event = event.model_copy(update={"stop_id": last.stop_id})
+        # Each of these is a fact about the message and nothing else. The
+        # sentence saying a person is looking at it is added once, by the
+        # router, in `_fallback` — not here as well.
+        issue = None
+        if Intent.CORRECTION in understood.intents or understood.contradicts_recent_state:
+            issue = "You asked to correct the record. Your earlier record is unchanged for now."
+        elif event.unresolved_fields or not understood.transcript_legible:
+            issue = "I could not make out what happened or which stop this is about."
+        if issue:
+            event = event.model_copy(update={"event_type": EventType.UNCLEAR})
+        updated, outcome = record(state, event, now)
+        if isinstance(outcome, Rejected):
+            issue = outcome.reason
+            event = outcome.unclear_event
+            updated, _ = record(state, event, now)
+        understood = understood.model_copy(update={"unresolved_fields": list(event.unresolved_fields)})
+        tracing.event("identity", lambda: {"output": {
+            "event_type": event.event_type.value, "stop_id": event.stop_id,
+            "unresolved_fields": list(event.unresolved_fields), "issue": issue}})
+        trace.tag(lambda: {"stop_id": event.stop_id, "exception_id": next(
+            (ex.id for ex in updated.exceptions if ex.stop_id == event.stop_id and resolution.is_open(ex)), None)})
+        if issue:
+            exchange = self._fallback(event, now, [issue])
+            why = "escalated without a model reply: the message needs a person"
+        elif event.event_type not in exception_rules.OPENS and Intent.QUESTION not in understood.intents:
+            facts = event_facts(updated, event)
+            exchange = Exchange(event.id, now, text, DriverReply(
+                mode=ReplyMode.SPEAK, language=Language.EN,
+                text=" ".join(facts), restated_facts=facts))
+            why = "read back from the record; no model reply needed"
+        else:
+            # Queue the proposed outbound action in the critic's context so it
+            # contributes HIGH risk before routing. Nothing is sent here.
+            updated = updated.with_exceptions([
+                ex.model_copy(update={"decision": ex.decision or Decision(
+                    actions=[DecisionAction(type=ActionType.DRAFT_CUSTOMER_MESSAGE)],
+                    rationale="Dispatcher review required before contacting the customer.")})
+                for ex in updated.exceptions if resolution.is_open(ex) and ex.stop_id == event.stop_id
+            ])
+            try:
+                exchange = self._answer(updated, event, understood, now)
+                why = "routed on the safety critic's assessment"
+            except Exception as error:
+                LOG.warning("Reply services unavailable; retaining the report and escalating", exc_info=True)
+                exchange = self._fallback(event, now, event_facts(updated, event))
+                why = f"reply services failed ({type(error).__name__}): report kept, escalated"
+        _trace_route(trace, exchange, why, updated, event.stop_id)
+        with self.lock:
+            if self.revision != revision:
+                raise MessageUnavailable("The shift changed while I read this. Your message has not been recorded. Please send it again.")
+            self.state = updated
+            self._save_exchange(exchange, event.stop_id)
+            self._queue_drafts()
+            self.completed_messages.add(message_id)
+            self.revision += 1
 
     def _fallback(self, event, now, facts):
         """Escalate without a model: the interpreter or the reply services are
@@ -475,11 +531,17 @@ class ShiftService:
             intents=[Intent.REPORT], language=event.language or Language.EN,
             event_type=event.event_type, driver_claimed_wait_minutes=event.driver_claimed_wait_minutes,
         )
-        try:
-            exchange = self._answer(state, event, understood, now)
-        except Exception:
-            raise MessageUnavailable("The reply could not be checked. Check the configured models and indexed SOPs, then try again.") from None
-        exchange = Exchange(str(uuid4()), now, exchange.transcript, exchange.reply,
+        check_id = str(uuid4())
+        with tracing.trace("exception check", seed=check_id,
+                           input=event.raw_transcript or EVENT_WORDS[event.event_type],
+                           trip_id=state.trip_id, stop_id=exception.stop_id,
+                           exception_id=exception.id) as trace:
+            try:
+                exchange = self._answer(state, event, understood, now)
+            except Exception:
+                raise MessageUnavailable("The reply could not be checked. Check the configured models and indexed SOPs, then try again.") from None
+            _trace_route(trace, exchange, "a dispatcher ran a live safety check", state, exception.stop_id)
+        exchange = Exchange(check_id, now, exchange.transcript, exchange.reply,
                             exchange.chunks, exchange.assessment, understood, exchange.retrieval)
         with self.lock:
             if revision != self.revision:

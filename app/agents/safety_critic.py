@@ -24,6 +24,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app import tracing
 from app.contracts.decision import ActionType, Decision
 from app.contracts.enums import Intent
 from app.contracts.event import InterpreterOutput
@@ -171,13 +172,17 @@ def ground(
     if missing:
         raise CriticError(f"Cannot check claims citing chunks not supplied: {missing}")
 
-    response = _complete(_render(draft, by_id), model or strong_model())
-    output = _parse(response.choices[0].message.content or "")
-    if len(output.verdicts) != len(draft.claims):
-        raise CriticError(
-            f"Grounding returned {len(output.verdicts)} verdicts for "
-            f"{len(draft.claims)} claims"
-        )
+    rendered, model = _render(draft, by_id), model or strong_model()
+    with tracing.observe("grounding", as_type="generation", model=model, input=rendered) as call:
+        response = _complete(rendered, model)
+        content = response.choices[0].message.content or ""
+        call.record(lambda: {"output": content, "usage_details": tracing.usage(response)})
+        output = _parse(content)
+        if len(output.verdicts) != len(draft.claims):
+            raise CriticError(
+                f"Grounding returned {len(output.verdicts)} verdicts for "
+                f"{len(draft.claims)} claims"
+            )
     return output
 
 
@@ -239,7 +244,21 @@ def _parse(content: str) -> GroundingOutput:
         raise CriticError(f"Grounding check returned a bad shape: {error}") from error
 
 
-def assess(
+def assess(**kwargs) -> Assessment:
+    """Node 5, observed. `_assess` is the whole of it; this puts what it
+    concluded on the message's trace."""
+    with tracing.observe("safety critic", as_type="evaluator") as span:
+        assessment = _assess(**kwargs)
+        span.record(lambda: {"output": {
+            "confidence": assessment.confidence, "risk": assessment.risk,
+            "signals": assessment.signals, "grounding_ran": assessment.grounding_ran,
+            "grounded_claims": len(assessment.grounded_claims),
+            "rejected_claims": len(assessment.rejected_claims),
+        }})
+        return assessment
+
+
+def _assess(
     *,
     understood: InterpreterOutput,
     draft: ResponderOutput,
