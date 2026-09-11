@@ -338,6 +338,19 @@ def test_responder_cannot_route_itself():
         parse_reply(payload, context)
 
 
+def test_grounding_reads_the_fenced_verdicts_and_not_a_note_after_them():
+    """Sonnet appended "**Note on the unclaimed assertion:** …" after its fenced
+    verdicts, and the whole check was counted as not having run — twice out of
+    twice, on the consignee-absent case."""
+    verdicts = ('{"verdicts": [{"supported": true, "affects_pay_or_liability": false, '
+                '"reason": "stated in the passage"}], "unclaimed_assertions": ["free time until 12:15"]}')
+    noted = safety_critic._parse(f"```json\n{verdicts}\n```\n\n**Note on the unclaimed assertion:** it is from records.")
+    assert noted.verdicts[0].supported and noted.unclaimed_assertions == ["free time until 12:15"]
+    assert safety_critic._parse(verdicts) == noted
+    with pytest.raises(CriticError, match="2 JSON blocks"):
+        safety_critic._parse(f"```json\n{verdicts}\n```\nor\n```json\n{verdicts}\n```")
+
+
 # --- interpreter boundary ----------------------------------------------------
 
 def test_a_question_with_no_event_has_nothing_unresolved():

@@ -19,6 +19,7 @@ from functools import cache
 import json
 import os
 from pathlib import Path
+import re
 import time
 from typing import Literal
 
@@ -232,8 +233,17 @@ def _complete(rendered: str, model: str):
             time.sleep(_pause(error, attempt))
 
 
+FENCED = re.compile(r"```(?:json)?[ \t]*\n?(.*?)```", re.S)
+
+
 def _parse(content: str) -> GroundingOutput:
-    body = content.strip().removeprefix("```json").removeprefix("```").removesuffix("```")
+    # Sonnet sometimes puts a note after the fenced verdicts ("**Note on the
+    # unclaimed assertion:** …"). The verdicts are the fenced block; prose
+    # around it is not an answer. Two blocks is ambiguous and is refused.
+    blocks = FENCED.findall(content)
+    if len(blocks) > 1:
+        raise CriticError(f"Grounding check returned {len(blocks)} JSON blocks: {content[:200]}")
+    body = blocks[0] if blocks else content.strip()
     try:
         payload = json.loads(body)
     except json.JSONDecodeError as error:
