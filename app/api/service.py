@@ -26,10 +26,10 @@ MINUTE = timedelta(minutes=1)
 
 
 def event_facts(state: TripState, event: OperationalEvent) -> list[str]:
-    """His record of one event, in his language once its table is written."""
-    lang = words.spoken(state.driver_language)
+    """His record of one event, each sentence in his language where it is written."""
+    lang = state.driver_language
     stop = state.stop(event.stop_id)
-    happened = words.say(lang, f"event.{event.event_type.value}")
+    happened = words.part(f"event.{event.event_type.value}")
     facts = [words.say(lang, "record.event_at_stop", event=happened, seq=stop.seq,
                        customer=state.customer_for(stop.id).name) if stop
              else words.say(lang, "record.event", event=happened)]
@@ -37,7 +37,7 @@ def event_facts(state: TripState, event: OperationalEvent) -> list[str]:
         facts.append(words.say(lang, "record.arrival", time=f"{event.ingested_at:%H:%M}"))
     if event.driver_claimed_wait_minutes is not None:
         facts.append(words.say(lang, "record.claimed_wait",
-                               minutes=words.minutes(lang, event.driver_claimed_wait_minutes)))
+                               minutes=words.minutes(event.driver_claimed_wait_minutes)))
     return facts
 
 
@@ -175,7 +175,7 @@ class ShiftService:
                 facts = event_facts(state, event)
                 result.append(Exchange(event.id, event.ingested_at, event.raw_transcript,
                                        DriverReply(mode=ReplyMode.SPEAK,
-                                                   language=words.spoken(state.driver_language),
+                                                   language=words.language_of(facts),
                                                    text=" ".join(facts), restated_facts=facts),
                                        origin="state read-back"))
         return result
@@ -231,7 +231,7 @@ class ShiftService:
                     self.exchanges.append(Exchange(
                         id=event.id, at=self.now, transcript=None,
                         reply=DriverReply(mode=ReplyMode.SPEAK,
-                                          language=words.spoken(self.state.driver_language),
+                                          language=words.language_of(facts),
                                           text=" ".join(facts), restated_facts=facts),
                     ))
                     self._mark_informed(event.stop_id)
@@ -414,7 +414,7 @@ class ShiftService:
         # Each of these is a fact about the message and nothing else. The
         # sentence saying a person is looking at it is added once, by the
         # router, in `_fallback` — not here as well.
-        lang = words.spoken(state.driver_language)
+        lang = state.driver_language
         issue = None
         if Intent.CORRECTION in understood.intents or understood.contradicts_recent_state:
             issue = words.say(lang, "issue.correction")
@@ -439,7 +439,7 @@ class ShiftService:
         elif event.event_type not in exception_rules.OPENS and Intent.QUESTION not in understood.intents:
             facts = event_facts(updated, event)
             exchange = Exchange(event.id, now, text, DriverReply(
-                mode=ReplyMode.SPEAK, language=lang,
+                mode=ReplyMode.SPEAK, language=words.language_of(facts),
                 text=" ".join(facts), restated_facts=facts))
             why = "read back from the record; no model reply needed"
         else:
@@ -474,11 +474,11 @@ class ShiftService:
 
         Worded by the router, not here. Two places writing "I'll check with the
         office" is how the driver came to hear it twice in one reply. `language`
-        is the one `words.spoken` chose for the facts, so the wrapper matches
-        them — never his language around English facts (SPEC 7.2).
+        is his; the facts sentence is said in it only if every fact can be
+        (SPEC 7.2).
         """
         return Exchange(event.id, now, event.raw_transcript, DriverReply(
-            mode=ReplyMode.ESCALATE, language=language, restated_facts=facts,
+            mode=ReplyMode.ESCALATE, language=words.language_of(facts), restated_facts=facts,
             text=router.escalation_text(facts, language),
         ))
 
@@ -486,10 +486,10 @@ class ShiftService:
         """The interpreter failed. His raw text goes to a dispatcher; nothing
         goes on the trip. Not through `_save_exchange`: it would attach this to
         any open exception with no stop, and it is not about one."""
-        lang = words.spoken(state.driver_language)
+        lang = state.driver_language
         facts = [words.say(lang, "failed.reached"), words.say(lang, "failed.nothing_recorded")]
         return Exchange(f"message-{message_id}", now, text, DriverReply(
-            mode=ReplyMode.ESCALATE, language=lang, restated_facts=facts,
+            mode=ReplyMode.ESCALATE, language=words.language_of(facts), restated_facts=facts,
             text=router.failure_text(facts, lang),
         ), failure=INTERPRETER_FAILED_BOARD)
 

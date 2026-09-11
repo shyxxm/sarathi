@@ -277,26 +277,26 @@ def _subject(state: TripState, event: OperationalEvent) -> StopState | None:
 
 
 def _say(state: TripState, key: str, **slots) -> str:
-    """His words, in his language once its table is written (SPEC 7.2)."""
-    return words.say(words.spoken(state.driver_language), key, **slots)
+    """His words: a sentence in his language where it is written (SPEC 7.2)."""
+    return words.say(state.driver_language, key, **slots)
 
 
-def _label(state: TripState, stop: StopState) -> str:
-    return _say(state, "label.stop", seq=stop.seq, customer=state.customer(stop.customer_id).name)
+def _label(state: TripState, stop: StopState) -> words.Part:
+    return words.part("label.stop", seq=stop.seq, customer=state.customer(stop.customer_id).name)
 
 
 def _already(state: TripState, stop: StopState) -> str:
     return _say(state, "reject.already", stop=_label(state, stop),
-                status=_say(state, f"status.{stop.status.value}"))
+                status=words.part(f"status.{stop.status.value}"))
 
 
 def _disagrees(state: TripState, stop: StopState, event: OperationalEvent) -> str:
     if event.event_type is EventType.ARRIVED_STOP and stop.status is StopStatus.PENDING:
         return _wrong_stop(state, stop)
     key = f"said.{event.event_type.value}"
-    said = _say(state, key if key in words.EN else "said.other")
+    said = words.part(key if key in words.EN else "said.other")
     return _say(state, "reject.disagrees", stop=_label(state, stop),
-                status=_say(state, f"status.{stop.status.value}"), said=said)
+                status=words.part(f"status.{stop.status.value}"), said=said)
 
 
 def _wrong_stop(state: TripState, stop: StopState) -> str:

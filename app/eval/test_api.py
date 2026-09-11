@@ -355,7 +355,8 @@ def test_the_office_line_is_said_once_on_the_fallback_path(client, service, monk
     post(client, "sdkjfh skdjfh")
     text = service.exchanges[-1].reply.text
     assert service.exchanges[-1].reply.mode is ReplyMode.ESCALATE
-    assert text.lower().count("office") == 1
+    # Once, in whichever language that sentence is said in (SPEC 7.2).
+    assert text.lower().count("office") + text.count("ഓഫീസ") == 1
 
 
 def test_replay_critics_are_captured_checks_with_real_weighted_signals(service):

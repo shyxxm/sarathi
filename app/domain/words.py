@@ -9,11 +9,14 @@ Whole sentences with named slots, never English fragments stitched together:
 Malayalam word order is not English word order. A slot may be left out of a
 translation; it may not be invented.
 
-One utterance, one language. `spoken()` gives his language once its table is
-complete and English until then — never half of each, which is how a driver
-came to hear three scripts in one reply. `TODO` marks a line still to write.
+One sentence, one language. `say()` gives a sentence in his language when it,
+and every line composed into it, is written — and the whole sentence in English
+when any of it is not. Sentences side by side may differ; a sentence never
+mixes, which is how a driver came to hear three scripts in one reply. `TODO`
+marks a line still to write, and a line is heard the moment it is written.
 """
 
+from dataclasses import dataclass, field
 from string import Formatter
 
 from app.contracts.enums import EventType, Language, StopStatus
@@ -97,6 +100,8 @@ EN: dict[str, str] = {
 
 # Malayalam. Every key English has, each still to write unless filled. The
 # English is beside each line; keep the {slots} you need, drop any you do not.
+# A line is heard as soon as it is written. A sentence that carries another
+# line — a status, an event, the minutes — waits until that one is written too.
 ML: dict[str, str] = {
     "event.DEPARTED": TODO,  # You set off
     "event.ARRIVED_STOP": TODO,  # You arrived
@@ -148,7 +153,10 @@ ML: dict[str, str] = {
     "fact.stop": TODO,  # Stop {seq}, {customer}: {status}.
     "fact.event": TODO,  # {event}.
     "fact.problem": TODO,  # {event} — recorded at {time}.
-    "fact.asked": TODO,  # You asked: "{question}"   ({question} is the interpreter's English)
+    # No {question} in this one: it carries the interpreter's English, and an
+    # English clause inside a Malayalam sentence is the mixing problem. Say that
+    # he asked; do not quote him back.
+    "fact.asked": TODO,  # You asked a question.
     "fact.claimed_wait": TODO,  # You said you have been waiting {minutes}.
     "fact.waiting": TODO,  # Waiting counted from {time}, when we recorded your arrival: {minutes} so far.
     "fact.free_time": TODO,  # Free time here: {minutes}.
@@ -165,9 +173,8 @@ ML: dict[str, str] = {
     "hedge": "ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
 }
 
-# Only the lines that existed before this table. Neither is complete, so code's
-# own utterances to these drivers are English; the hedge line still matches
-# the language the responder wrote in.
+# Only the lines that existed before this table. Everything else is said to
+# these drivers in English, a sentence at a time.
 MIXED: dict[str, str] = {
     "escalation.opening": "രേഖപ്പെടുത്തി: {facts}.",
     "escalation.closing": "ബാക്കി ഓഫീസിൽ ഒരാൾ check ചെയ്യുന്നുണ്ട്.",
@@ -195,28 +202,69 @@ def missing(language: Language) -> list[str]:
     return [key for key in EN if table.get(key, TODO) == TODO]
 
 
-def spoken(language: Language) -> Language:
-    """The language one utterance of code's words is said in: his, once his
-    table is complete, and English until then. Never half of each."""
-    return language if not missing(language) else Language.EN
+def written(language: Language, key: str) -> bool:
+    return language is Language.EN or TABLES.get(language, {}).get(key, TODO) != TODO
 
 
-def say(language: Language, key: str, **slots) -> str:
-    """One line in a language `spoken()` chose. A line that language has not
-    written is English rather than the marker — a driver never hears "TODO"."""
-    template = TABLES.get(language, {}).get(key, TODO)
-    return (EN[key] if template == TODO else template).format(**slots)
+@dataclass(frozen=True)
+class Part:
+    """A line said inside another — the status in "Stop 3: arrived", the
+    minutes in "61 minutes so far". It is said in the language of the sentence
+    around it, and that sentence is only his language if this line is too."""
+
+    key: str
+    slots: dict = field(default_factory=dict)
 
 
-def line(language: Language, key: str) -> str:
-    """A single line appended to text a model already wrote in his language —
-    the hedge. His language where it is written, whether or not the rest is."""
-    return say(language, key)
+def part(key: str, **slots) -> Part:
+    return Part(key, slots)
 
 
-def minutes(language: Language, count: int) -> str:
-    return say(language, "unit.minute_one" if count == 1 else "unit.minute_many", n=count)
+def minutes(count: int) -> Part:
+    return part("unit.minute_one" if count == 1 else "unit.minute_many", n=count)
+
+
+def can(language: Language, key: str, slots: dict) -> bool:
+    """Whether this sentence, and every line composed into it, is written."""
+    return written(language, key) and all(
+        can(language, value.key, value.slots) for value in slots.values() if isinstance(value, Part))
+
+
+def _render(language: Language, key: str, slots: dict) -> str:
+    values = {name: _render(language, value.key, value.slots) if isinstance(value, Part) else value
+              for name, value in slots.items()}
+    return TABLES[language][key].format(**values)
+
+
+class Said(str):
+    """A sentence as said, remembering what it was said from — so a sentence
+    that carries it, and must be one language, can say it again in that one."""
+
+    def __new__(cls, text: str, language: Language, key: str | None = None, slots: dict | None = None):
+        said = super().__new__(cls, text)
+        said.language, said.key, said.slots = language, key, dict(slots or {})
+        return said
+
+    def can(self, language: Language) -> bool:
+        return can(language, self.key, self.slots) if self.key else language is Language.EN
+
+    def again(self, language: Language) -> "Said":
+        return say(language, self.key, **self.slots) if self.key else self
+
+
+def say(language: Language, key: str, **slots) -> Said:
+    """One sentence: in his language if it and every line composed into it are
+    written, otherwise the whole sentence in English. Never half of each, and
+    never the marker — a driver does not hear "TODO"."""
+    chosen = language if can(language, key, slots) else Language.EN
+    return Said(_render(chosen, key, slots), chosen, key, slots)
+
+
+def language_of(lines) -> Language:
+    """What a reply is labelled: the one language all its lines share, else English."""
+    languages = {getattr(line, "language", Language.EN) for line in lines}
+    return languages.pop() if len(languages) == 1 else Language.EN
 
 
 def slots(template: str) -> set[str]:
-    return {field for _, field, _, _ in Formatter().parse(template) if field}
+    return {name for _, name, _, _ in Formatter().parse(template) if name}

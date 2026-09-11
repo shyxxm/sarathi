@@ -79,10 +79,16 @@ def escalation_text(facts: list[str], language: Language) -> str:
     office line ended up being said twice on the fallback path and three times
     on the hedged one.
     """
+    # "Recorded: a; b." is one sentence, so it is one language: his only if
+    # every fact in it can be said in his language, otherwise all of it in
+    # English (SPEC 7.2). The closing is a sentence of its own.
+    lines = [fact if isinstance(fact, words.Said) else words.Said(fact, Language.EN) for fact in facts]
+    frame = language if words.written(language, "escalation.opening") and all(
+        line.can(language) for line in lines) else Language.EN
     # Facts arrive as sentences with their own full stop, and the template
     # closes with one: "…which stop this is about.." was spoken to a driver.
-    joined = "; ".join(fact.rstrip(" .") for fact in facts)
-    return (f"{words.say(language, 'escalation.opening', facts=joined)} "
+    joined = "; ".join(line.again(frame).rstrip(" .") for line in lines)
+    return (f"{words.say(frame, 'escalation.opening', facts=joined)} "
             f"{words.say(language, 'escalation.closing')}")
 
 
@@ -119,16 +125,15 @@ def route(
 
     if mode is ReplyMode.ESCALATE:
         # The draft may contain the very sentence grounding rejected, so none
-        # of it is spoken. His facts are: code wrote them from state (SPEC 5.2)
-        # in the language `words.spoken` chose, and the wrapper is said in that
-        # same one — never his language around English facts (SPEC 7.2).
-        language = words.spoken(language)
+        # of it is spoken. His facts are: code wrote them from state (SPEC 5.2),
+        # each sentence in his language where it is written (SPEC 7.2).
         text = escalation_text(list(facts), language)
+        language = words.language_of(facts)
         claims = ()
     elif mode is ReplyMode.SPEAK_HEDGED:
         # Appended to text the responder wrote in his language, so this one
         # line is his language wherever it is written.
-        text = f"{draft.text} {words.line(language, 'hedge')}"
+        text = f"{draft.text} {words.say(language, 'hedge')}"
     else:
         text = draft.text
 

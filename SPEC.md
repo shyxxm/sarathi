@@ -1157,9 +1157,8 @@ says them back in `text`, and it makes claims. A record figure inside a claim is
 the responder ignoring its instructions, and grounding's existing refusal covers
 it.
 
-Code-written facts are said in his language through the table in §7.2, once its
-Malayalam is written. Until then they are English, and so is an escalation,
-which speaks only facts — never English facts inside a Malayalam wrapper.
+Code-written facts are said in his language through the table in §7.2, a
+sentence at a time as its Malayalam is written.
 
 ---
 
@@ -1272,19 +1271,26 @@ code wrote for him was English.
   stitched together: Malayalam word order is not English word order. A
   translation may drop a slot but never invent one, and the suite checks every
   written line against the slots its English offers.
-- **One utterance, one language.** `spoken()` gives his language once its table
-  is complete, and English until then. Never half of each: a half-written
-  table is how a driver comes to hear two languages in one reply. The hedge
-  line is the one exception — it is appended to text the responder already
-  wrote in his language, so it is looked up on its own.
+- **One sentence, one language.** A sentence is said in his language if it,
+  and every line composed into it — the status in "Stop 3: arrived", the minutes
+  in "61 minutes so far" — is written. Otherwise the whole sentence is English.
+  What went wrong before was mixing *inside* a sentence; sentences in different
+  languages side by side are coherent. "Recorded: a; b." is one sentence, so an
+  escalation's facts are his language only when every one of them can be; its
+  closing is a sentence of its own.
+- **Per line, not all or nothing.** A line is heard the moment it is written.
+  The first version waited for all 61, which in practice gets them written fast
+  and badly; per line lets the ones a driver hears most be written carefully
+  first.
+- **Never quote him back in a sentence of another language.** The Malayalam
+  `fact.asked` has no `{question}` slot: it carries the interpreter's English.
 - **A driver never hears a marker.** A line not yet written is said in
   English, whole.
 
 **State, 11 September 2026:** English complete. Malayalam lists every key, with
 `TODO` on all but the three lines that already existed — the escalation opening
-and closing, and the hedge. Until the rest are written, code's words to a
-Malayalam speaker stay English, as they were. Not covered: the driver page's own
-labels and the composer's error messages.
+and closing, and the hedge — and those are heard now. Not covered: the driver
+page's own labels and the composer's error messages.
 
 ---
 

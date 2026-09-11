@@ -132,23 +132,22 @@ class ResponderContext:
         Which figures are ours is a question about state, so the model neither
         writes this list nor decides what goes in it — the same fix as identity
         (SPEC 1.1). It is the reply's `restated_facts`, and it is what grounding
-        is told we already knew. In his language once its table is written,
-        English until then — the whole list in one (SPEC 7.2).
+        is told we already knew. Each sentence in his language where it is
+        written, English where it is not (SPEC 7.2).
         """
-        lang, facts, opened = words.spoken(self.language), [], self.exception
+        lang, facts, opened = self.language, [], self.exception
 
         def say(key, **slots):
             return words.say(lang, key, **slots)
 
         def happened(kind):
-            return say(f"event.{kind.value}")
+            return words.part(f"event.{kind.value}")
 
-        def minutes(count):
-            return words.minutes(lang, count)
+        minutes = words.minutes
 
         if self.stop is not None and self.customer is not None:
             facts.append(say("fact.stop", seq=self.stop.seq, customer=self.customer.name,
-                             status=say(f"status.{self.stop.status.value}")))
+                             status=words.part(f"status.{self.stop.status.value}")))
         reported = self.transcript and self.event_type not in (None, EventType.ACKNOWLEDGEMENT)
         if reported and not (opened and opened.exception_type is self.event_type):
             facts.append(say("fact.event", event=happened(self.event_type)))
