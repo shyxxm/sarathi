@@ -169,11 +169,36 @@ do — that frame survives the corruption, so the model completes it. The one
 morpheme carrying the negation is exactly what a context-completing reader does
 not need, and therefore does not miss.
 
-**`stt_confidence` does not catch this class.** m07's audio was clean and its
-confidence will be high. The signal describes how well the words were heard,
-and here the words were heard perfectly and then overridden. So the composite
-score in §5 cannot be the only mitigation — it will score this reading as
-trustworthy, because by every signal it has, it is.
+**Transcription confidence cannot establish correct interpretation.** These
+experiments supplied text, not audio: the four planned voice notes had not
+been recorded. m07's words arrived intact and were then overridden. A future
+recogniser could correctly transcribe them and the interpreter could still
+get them wrong. No confidence value was measured in those experiments.
+
+**First observed instance outside the constructed test — 12 September 2026,
+real voice note 02.** Sarvam returned:
+
+```
+ഇവിടെ ആരുമില്ല phone എടുക്കുന്നില്ല shop കൂട്ടിയ പോലെയുണ്ട് ഇപ്പോൾ എന്ത് ചെയ്യും
+```
+
+The speaker confirms that `shop കൂട്ടിയ പോലെയുണ്ട്` is garbled; the supplied
+meaning is "the shop looks closed." The verbatim spoken line is pending and
+must be added before recording the exact word-level error. Haiku still returned
+`CONSIGNEE_ABSENT`, with `REPORT` and `QUESTION`, and marked the transcript
+legible. **The classification was correct despite a wrong transcript, not
+because the transcript was right.** This is the first observed real-audio
+instance of the §2.1 frame-completion pattern: the surrounding absence, phone
+and request-for-help frame survived the damaged shop phrase and yielded the
+expected event. Unlike m10gg, the absence negation itself survived here; this
+case does not demonstrate a real-audio negation inversion.
+
+That correct event must not be counted as evidence that the interpreter checks
+transcription fidelity. It is the strongest evidence so far from real audio
+for placing the safety burden on §2's restatement loop, not on the interpreter:
+the driver must hear what was recorded and have the chance to correct it.
+Sarvam supplied no transcription confidence to flag the damage. This run did
+not test a driver correction or establish that the loop guarantees safety.
 
 **What actually catches it is §2.** Sarathi says *"recorded — gate closed at
 stop 2, waiting counted from 10:42"* and the driver says *no, it opened, I'm
@@ -188,10 +213,16 @@ Two things follow, and they are not alternatives:
 - **`restated_facts` is load-bearing safety, not courtesy.** A reply that
   acknowledges without restating removes the only check on this failure. This
   is why `DriverReply.restated_facts` is never empty (§3.4, CLAUDE.md rule 2).
-- **M6 still owes per-segment STT confidence.** It catches the damaged subclass
-  — the segment carrying `illa` is the one the recogniser was least sure of, and
-  that doubt has to reach §5 rather than being averaged away. It is necessary
-  and it is not sufficient.
+- **The damaged-transcript subclass has no confidence mitigation today.**
+  Sarvam Saaras v3 does not expose transcription or segment confidence.
+  `language_probability` measures the detected language, not whether it heard
+  the right Malayalam, and is never substituted. We cannot claim the recogniser
+  was unsure about `illa`, or that its score catches a missing negation. Missing
+  confidence earns zero credit in §5. That makes voice replies more cautious;
+  it does not detect the error. **The restatement loop is the only guard for
+  voice transcription and interpretation errors today.** If another provider
+  supplies real segment confidence, use the minimum and measure whether it
+  tracks error before treating it as a mitigation.
 
 **Unresolved — 11 September 2026: two unrelated changes moved m07, in
 opposite directions.** One paragraph was added to the interpreter prompt for an
@@ -339,6 +370,64 @@ check against. A rate or a free-time allowance rendered loosely — 150 paise a
 minute heard as 15, sixty minutes free heard as sixteen — is not something a
 driver catches by hearing it, because he never had the right number to begin
 with.
+
+### 2.4 STT ambiguity collapse
+
+**The recogniser can resolve an ambiguity that belongs to the driver.** This
+is a separate failure class, upstream of §2.1's interpreter frame-completion.
+STT emits a clean-looking choice; the interpreter receives that choice without
+the alternatives or the uncertainty in the original speech. Nothing downstream
+can recover the fact that a choice was made from the transcript alone.
+
+**Finding — real voice note 04, 12 September 2026:** the supplied reference
+was "Over", explicitly described by the speaker as unclear about what was
+over. The two paths produced:
+
+| Input path | Text seen by interpreter | Interpreter result |
+|---|---|---|
+| Typed reference | `Over.` | `UNCLEAR`, `REPORT`, legible=true; `event_type` unresolved |
+| Recorded speech through Sarvam | `കഴിഞ്ഞു.` (finished/over) | `STOP_COMPLETED`, `REPORT`, legible=true; no unresolved fields |
+
+The speaker's diagnosis is **STT ambiguity collapse**: spoken "over" becomes
+`കഴിഞ്ഞു`, a word meaning finished, and the ambiguity handled correctly on
+the typed path is no longer represented as uncertainty on the voice path.
+The resulting event looks like an ordinary completion report.
+
+**Evidence boundary:** the exact spoken line has not yet been independently
+verified against a verbatim reference. The supplied English reference and
+Malayalam transcript differ in language, and `കഴിഞ്ഞു` itself still does not
+name what finished. These outputs establish the unsafe difference between the
+two paths; they do not by themselves isolate how much of the choice was made
+by the recogniser versus the interpreter's treatment of Malayalam. Preserve
+that distinction when adding the verbatim evidence. No prompt was changed or
+transcript repaired for this comparison.
+
+**STT ambiguity collapse is invisible to the composite score, to grounding,
+and to `unresolved_fields`.** The composite scores the signals it receives;
+legible text does not disclose a discarded alternative. Sarvam supplied no
+transcription confidence. Giving that unavailable signal zero credit (§5)
+makes voice more cautious but does not identify this particular collapse.
+Grounding checks claims against sources, not the recogniser's choice against
+the original speech. `unresolved_fields` describes what the interpreter still
+needs; here it was empty. None of these checks preserves the driver's original
+ambiguity or establishes that he meant delivery completion.
+
+**The restatement loop is again the only guard today.** He hears *"delivery
+completed, stop 2"* and can say *no*. The stop identity comes from code, as
+always; the point is to expose the concrete event we recorded. A courteous
+acknowledgement would hide that decision. Read-back now carries the safety
+burden for three distinct failure classes: wrong words from transcription,
+wrong comprehension through interpreter frame-completion (§2.1), and ambiguity
+collapsed by STT before interpretation. This is further evidence that
+`restated_facts` is load-bearing. It is not evidence that a driver correction
+was exercised successfully: this evaluation ran STT and interpretation only,
+without applying a trip event or testing the correction loop.
+
+One call took 0.668 s for STT and 1.592 s for interpretation. Transcription
+confidence was unavailable; language probability 0.946 is not a substitute.
+The six-note set has five expected intent/event readings and this failed
+ambiguity case, not six successes. Raw evidence is in
+`recordings/stt-results/2026-09-12-note04/`.
 
 ---
 
@@ -488,6 +577,16 @@ driver himself when he hears it back (§2).
 `claims` comes from retrieval, asserts what the customer's rules say, and is
 checked against the chunk text before it may be spoken. Facts are never
 grounded against a SOP and claims are never taken on trust.
+
+**The spoken reply is selective; the facts list is complete.** M6 made the
+cost of reciting every fact audible: m06 took 36 seconds. Target ten to fifteen
+seconds, including the router's follow-up. Lead with what he needs most — at a
+shut gate, whether his waiting still counts under the cited rule. One idea per
+short sentence. Let the on-screen list carry the routine recap. The reported
+problem must still be recognisable in the answer, and anything he told us that
+we recorded differently must still be read back (§2). When waits differ, say
+his claimed minutes, our counted minutes and when our count starts. Never cut
+that comparison or the relevant protection rule to meet a duration target.
 
 `cited_sop_ids` is derived from `claims`, not carried alongside them, so the
 reply cannot list a citation that no sentence in it rests on. That invariant is
@@ -746,6 +845,22 @@ risk = HIGH if (
     or intent == Intent.CORRECTION
 ) else LOW
 ```
+
+**Voice confidence is a measurement, not a proxy.** The second signal uses
+the provider's transcription confidence, taking the minimum across segments
+when supplied. One badly heard word matters more than the average. A missing
+segment score makes that evidence unavailable. Never substitute language
+detection probability or the interpreter's own confidence.
+
+When a voice provider supplies no transcription confidence, keep the measured
+value `null`, show **unavailable**, and give this signal **0.0 credit**. Do not
+renormalise the weights. This deliberately lowers the composite by 0.25 versus
+the equivalent legible typed input and can cause more hedging or escalation.
+The zero is a scoring policy, not a claimed measurement of zero accuracy.
+Typed input retains its existing legibility score, and an interpreter that
+finds a transcript illegible still gives this signal zero regardless of STT.
+Routine reports that only receive a code-written read-back still bypass the
+critic, as before; voice does not introduce a new downstream pipeline.
 
 `retrieval_score` is the **top cited SOP chunk's** similarity, and 0.0 when
 nothing was cited. Precedents do not count toward it, however well they match.
@@ -1164,9 +1279,9 @@ code knows that — the pattern of §1.1. **Built, 11 September 2026:**
 computed. They are the reply's `restated_facts`, and they are what grounding is
 told we already knew. `ResponderOutput` has no `restated_facts` field, so the
 responder can neither put a figure in the records bucket nor leave one out; it
-says them back in `text`, and it makes claims. A record figure inside a claim is
-the responder ignoring its instructions, and grounding's existing refusal covers
-it.
+selects the facts he needs to hear in `text`, and it makes claims. A record
+figure inside a claim is the responder ignoring its instructions, and
+grounding's existing refusal covers it.
 
 Code-written facts are said in his language through the table in §7.2, a
 sentence at a time as its Malayalam is written.
@@ -1342,6 +1457,87 @@ Measured 11 September 2026, one live m06: text 24.05 s, then TTS 5.76 s;
 `Kochi Homeware Distributors`, `10:12`, `10:13`, `10:00–12:00` and figures
 including `40`, `60` and `59`. Cached replay: 0.006 ms, no synthesis.
 Pronunciation has not yet been reviewed by listening.
+
+The responder prompt was then shortened (§3.4), including its context's
+instruction to recite the facts. Same m06, same TTS settings: **9.984 s** of
+audio, TTS 2.93 s. The spoken text leads with the shut-gate clock rule, retains
+his 40 minutes against our 1 minute counted from 10:12, and ends with the
+router's office confirmation. One live sample; duration is a prompt target,
+not a hard limit enforced by cutting audio or dropping safety content.
+
+---
+
+### 7.4 Spoken input — M6, second half
+
+`voice/stt.py` provides an interface, initially Sarvam Saaras v3 in `codemix`
+mode, configured by `STT_PROVIDER` and `SARVAM_API_KEY`. Recording supplements
+typing. The driver starts the microphone explicitly, previews the note, then
+sends it. Capture stops at 25 seconds; the API accepts at most 8 MB and Sarvam's
+short-audio endpoint accepts up to 30 seconds. No transcript is repaired,
+translated or padded before interpretation. Successful transcription enters
+the existing text pipeline. Input audio is not retained by the demo server.
+
+A failed STT call produces an explicit transcription error, no transcript,
+no interpreter call and no trip event. The typed box remains available. A
+successful transcription followed by interpreter failure is still §2.2: those
+words reach a dispatcher as a processing failure. Completed message ids are
+idempotent across retransmission, including the STT call.
+
+STT is a span under the message trace, with latency, provider and genuine
+transcription confidence (minimum across segments when supplied). The raw
+confidence remains null when unavailable; §5 assigns zero credit. A later
+dispatcher safety check retains that provenance. No language probability is
+ever passed as transcription confidence.
+
+**Provider limitation, 11 September 2026:** Sarvam's
+[REST response](https://docs.sarvam.ai/api-reference/speech-to-text/transcribe)
+documents transcript, phrase timestamps, detected language and language
+probability, but no transcription-confidence field. Therefore confidence/error
+correlation cannot currently be measured for this adapter. That missing guard
+is stated in §2.1; it is not worked around with a proxy.
+
+**A candidate to compare:** Google Cloud documents Malayalam `ml-IN` on its
+`short` model with word-level confidence in the
+[language support table](https://docs.cloud.google.com/speech-to-text/docs/speech-to-text-supported-languages).
+Its [recognition response](https://docs.cloud.google.com/speech-to-text/docs/reference/rest/v2/projects.locations.recognizers/recognize)
+describes genuine recognition confidence, but warns it is not guaranteed
+accurate or always supplied; zero can mean unset. A future adapter must honour
+that sentinel. Having the field does not establish calibration on noisy
+Malayalam-English. Not integrated or measured here.
+
+**First human-recording comparison, 12 September 2026:** five notes (01, 02,
+03, 05, 06), one female speaker in clean conditions. All five transcripts
+produced the expected intent/event reading; note 01 retained the 40-minute
+wait. Note 02 is the first observed instance of §2.1 outside the constructed
+test: the speaker confirms the shop-closure phrase is garbled, yet the
+interpreter classified consignee absence correctly despite the wrong
+transcript. The verbatim line is pending; the observation and its safety
+implication are recorded in §2.1. The
+English references are used as meaning-level ground truth, not verified
+verbatim Malayalam: word-error rate is unavailable. Different input languages
+also prevent the reference/transcript comparison alone from isolating ASR
+damage. Mean STT latency was 1.31 s (range 1.00–1.96 s), excluding downstream
+processing. Genuine transcription confidence was absent on all five calls.
+
+**Follow-up note 04, same day:** Sarvam returned `കഴിഞ്ഞു.`; Haiku chose
+`STOP_COMPLETED` with no unresolved fields, while the supplied ambiguous
+`Over.` reference produced `UNCLEAR`. This is the separate STT ambiguity-collapse
+finding (§2.4), with the attribution limits recorded there,
+bringing the set to five expected readings out of six. STT took 0.668 s and
+again supplied no transcription confidence. Evidence is in
+`recordings/stt-results/2026-09-12-note04/`; the combined comparison is in
+`recordings/stt-results/2026-09-12-six-notes/`. It does not isolate ASR damage
+from the interpreter's treatment of the different languages.
+
+This supports further supervised testing, not field reliability. Route
+drivers are overwhelmingly male and audio will be worse: this sample is an
+optimistic clean-condition ceiling, not a measurement of route-driver
+performance. Engine noise and the opened-gate contrast remain untested. The
+originally planned four voice notes in STACK.md did not
+exist. `scripts/check_stt.py` saves raw responses and compares interpreter
+readings; WER requires verbatim references. Local evidence is in
+`recordings/stt-results/2026-09-12/`. No synthesised note substitutes for a
+human recording in this evaluation.
 
 ---
 

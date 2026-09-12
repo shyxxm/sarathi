@@ -1,0 +1,11 @@
+{
+  "source": "User-supplied descriptions and reference transcripts, 12 September 2026",
+  "speaker_count": 1,
+  "speaker_description": "female",
+  "conditions": "clean",
+  "engine_noise_tested": false,
+  "limitation": "Optimistic clean-condition ceiling, not a measurement of route-driver performance.",
+  "reference_kind": "translation",
+  "reference_use": "English references used as meaning-level ground truth; exact spoken wording not supplied.",
+  "note_04": "Arrived after the initial five-note run; compared separately against the previously supplied reference Over."
+}

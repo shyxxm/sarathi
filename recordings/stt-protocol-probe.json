@@ -1,0 +1,38 @@
+{
+  "purpose": "Protocol check using generated audio, excluded from human ASR evaluation",
+  "message_id": "652d1dab-80a6-452f-b33d-4f72a95ca09f",
+  "latency_ms": 1223.759709042497,
+  "result": {
+    "text": "ഗേറ്റ് അടഞ്ഞിരുന്നാലും കാത്തിരിപ്പ് നിൽക്കില്ല, ക്ലോക്ക് ഓടുന്നുണ്ട്. താങ്കൾ 40 minute പറഞ്ഞു. ഞങ്ങളുടെ കണക്കിൽ 10 മണി 10 minute മുതൽ 1 minute ആണ്. ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
+    "confidence": null,
+    "segment_confidences": [],
+    "language_code": "ml-IN",
+    "language_probability": 0.98
+  },
+  "raw": {
+    "request_id": "20260911_9b9a6da8-1e7d-41bf-89ba-0d01b3cf1d3b",
+    "transcript": "ഗേറ്റ് അടഞ്ഞിരുന്നാലും കാത്തിരിപ്പ് നിൽക്കില്ല, ക്ലോക്ക് ഓടുന്നുണ്ട്. താങ്കൾ 40 minute പറഞ്ഞു. ഞങ്ങളുടെ കണക്കിൽ 10 മണി 10 minute മുതൽ 1 minute ആണ്. ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്.",
+    "timestamps": {
+      "words": [
+        "ഗേറ്റ് അടഞ്ഞിരുന്നാലും കാത്തിരിപ്പ് നിൽക്കില്ല, ക്ലോക്ക് ഓടുന്നുണ്ട്. താങ്കൾ 40 minute പറഞ്ഞു. ഞങ്ങളുടെ കണക്കിൽ 10 മണി 10 minute മുതൽ 1 minute ആണ്. ഇത് ഓഫീസിൽ ഉറപ്പാക്കുന്നുണ്ട്."
+      ],
+      "start_time_seconds": [
+        0.0
+      ],
+      "end_time_seconds": [
+        9.98
+      ]
+    },
+    "language_code": "ml-IN",
+    "language_probability": 0.98
+  },
+  "trace_verification": {
+    "trace_id": "129d001d6890f7fe9407406319be0991",
+    "stt_under_message": true,
+    "provider": "sarvam",
+    "latency_ms": 1221.2730828905478,
+    "stt_confidence": null,
+    "language_probability": 0.98,
+    "failed": false
+  }
+}

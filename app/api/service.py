@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from functools import cached_property
 import json
@@ -19,6 +19,7 @@ from app.contracts.reply import Claim, DriverReply
 from app.contracts.retrieval import RetrievalResult, RetrievedChunk
 from app.domain import detention, exception_rules, identity, resolution, watchdog, words
 from app.domain.state_machine import EVENT_WORDS, FINISHED, Rejected, TripState, apply, left_a_stop
+from app.voice.stt import SpeechInput, Transcription
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ class Exchange:
     # Set when the message never became a reading. SPEC 2.2: a processing
     # failure for a person to answer, not an operational exception.
     failure: str | None = None
+    transcription: Transcription | None = None
 
 
 @dataclass
@@ -335,7 +337,7 @@ class ShiftService:
 
         return interpret(text)
 
-    def _answer(self, state, event, understood, now) -> Exchange:
+    def _answer(self, state, event, understood, now, *, transcription=None) -> Exchange:
         stop = state.stop(event.stop_id)
         exception = next((ex for ex in state.exceptions
                           if ex.stop_id == event.stop_id and resolution.is_open(ex)), None)
@@ -353,6 +355,9 @@ class ShiftService:
         assessment = safety_critic.assess(
             understood=understood, draft=draft, chunks=context.sop_chunks, records=records,
             retrieval_score=retrieval.retrieval_score,
+            # Missing voice confidence earns no credit. None retains the
+            # existing typed-text behaviour; it must not stand in for voice.
+            stt_confidence=(transcription.stt_confidence or 0.0) if transcription else None,
             cost_exposure_paise=detention.exposure_paise(state, event.stop_id, now),
             decision=exception.decision if exception else None,
         )
@@ -365,6 +370,12 @@ class ShiftService:
                         context.sop_chunks, assessment, understood, retrieval)
 
     def submit(self, text: str, message_id: str):
+        self._submit(message_id, text=text)
+
+    def submit_voice(self, audio: bytes, media_type: str, message_id: str, speech: SpeechInput):
+        self._submit(message_id, audio=audio, media_type=media_type, speech=speech)
+
+    def _submit(self, message_id, *, text=None, audio=None, media_type=None, speech=None):
         with self.lock:
             if message_id in self.completed_messages:
                 return
@@ -378,14 +389,19 @@ class ShiftService:
             # One trace per message, found by its id (SPEC 7.1). `tracing`
             # swallows its own failures: this cannot change what happens to
             # his message.
-            with tracing.trace("driver message", seed=message_id, input=text,
+            trace_input = text if audio is None else {"source": "voice", "audio_bytes": len(audio),
+                                                     "media_type": media_type}
+            with tracing.trace("driver message", seed=message_id, input=trace_input,
                                trip_id=state.trip_id, message_id=message_id) as trace:
-                self._process(text, message_id, state, now, revision, trace)
+                transcription = speech.transcribe(audio, media_type) if audio is not None else None
+                if transcription:
+                    text = transcription.text
+                self._process(text, message_id, state, now, revision, trace, transcription=transcription)
         finally:
             with self.lock:
                 self.pending_messages.discard(message_id)
 
-    def _process(self, text, message_id, state, now, revision, trace):
+    def _process(self, text, message_id, state, now, revision, trace, *, transcription=None):
         try:
             understood = self.interpret(text)
         except Exception as error:
@@ -393,7 +409,7 @@ class ShiftService:
             # again at temperature 0, and his question reaches nobody. The
             # trip is untouched, so no revision check. SPEC 2.2.
             LOG.warning("Interpreter failed on message %s; escalating", message_id, exc_info=True)
-            exchange = self._failed(text, message_id, now, state)
+            exchange = replace(self._failed(text, message_id, now, state), transcription=transcription)
             _trace_route(trace, exchange, f"interpreter failed ({type(error).__name__}): "
                                           "processing failure, sent to a dispatcher")
             with self.lock:
@@ -465,12 +481,13 @@ class ShiftService:
                 for ex in updated.exceptions if resolution.is_open(ex) and ex.stop_id == event.stop_id
             ])
             try:
-                exchange = self._answer(updated, event, understood, now)
+                exchange = self._answer(updated, event, understood, now, transcription=transcription)
                 why = "routed on the safety critic's assessment"
             except Exception as error:
                 LOG.warning("Reply services unavailable; retaining the report and escalating", exc_info=True)
                 exchange = self._fallback(event, now, event_facts(updated, event), lang)
                 why = f"reply services failed ({type(error).__name__}): report kept, escalated"
+        exchange = replace(exchange, transcription=transcription)
         _trace_route(trace, exchange, why, updated, event.stop_id)
         with self.lock:
             if self.revision != revision:
@@ -532,6 +549,8 @@ class ShiftService:
             if not resolution.is_open(exception):
                 raise MessageUnavailable("This exception has already closed.")
             event = next(e for e in state.events if e.id == exception.opening_event_id)
+            original = next((e for e in reversed(self.exchanges) if e.id == event.id), None)
+            transcription = original.transcription if original else None
         understood = InterpreterOutput(
             intents=[Intent.REPORT], language=event.language or Language.EN,
             event_type=event.event_type, driver_claimed_wait_minutes=event.driver_claimed_wait_minutes,
@@ -542,7 +561,7 @@ class ShiftService:
                            trip_id=state.trip_id, stop_id=exception.stop_id,
                            exception_id=exception.id) as trace:
             try:
-                exchange = self._answer(state, event, understood, now)
+                exchange = self._answer(state, event, understood, now, transcription=transcription)
             except Exception:
                 # The dispatcher sees the short sentence; the cause goes to the
                 # log. `from None` alone hid a refused draft behind "check the
@@ -552,7 +571,8 @@ class ShiftService:
             _trace_route(trace, exchange, "a dispatcher ran a live safety check", state, exception.stop_id)
             parent = trace.parent()
         exchange = Exchange(check_id, now, exchange.transcript, exchange.reply,
-                            exchange.chunks, exchange.assessment, understood, exchange.retrieval)
+                            exchange.chunks, exchange.assessment, understood, exchange.retrieval,
+                            transcription=transcription)
         with self.lock:
             if revision != self.revision:
                 raise MessageUnavailable("The shift changed during the check. Please try again.")

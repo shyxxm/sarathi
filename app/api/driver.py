@@ -1,14 +1,38 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from app.api.service import MessageUnavailable
 from app.api.views import context
 from app.api.web import form_values, render
+from app.voice.stt import MAX_AUDIO_BYTES, MEDIA_TYPES, STTUnavailable
 
 router = APIRouter()
+
+
+@router.post("/driver/voice-messages/{message_id}")
+async def voice_message(message_id: UUID, request: Request):
+    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if media_type not in MEDIA_TYPES:
+        return JSONResponse({"error": "That audio format is not supported. Please type your message."}, status_code=415)
+    audio = bytearray()
+    async for chunk in request.stream():
+        audio.extend(chunk)
+        if len(audio) > MAX_AUDIO_BYTES:
+            return JSONResponse({"error": "The recording is too large. Please record a shorter note or type."}, status_code=413)
+    if not audio:
+        return JSONResponse({"error": "The recording was empty. Nothing was submitted. Please type or record again."}, status_code=422)
+    service = request.app.state.shift
+    try:
+        await run_in_threadpool(service.submit_voice, bytes(audio), media_type, str(message_id),
+                                request.app.state.speech_input)
+    except STTUnavailable as error:
+        return JSONResponse({"error": str(error)}, status_code=503)
+    except MessageUnavailable as error:
+        return JSONResponse({"error": str(error)}, status_code=409)
+    return {"reply_id": f"message-{message_id}"}
 
 
 @router.get("/driver/replies/{reply_id}/audio")

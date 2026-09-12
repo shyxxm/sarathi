@@ -1,0 +1,7 @@
+{
+  "event_type": "GATE_CLOSED",
+  "intents": [
+    "REPORT"
+  ],
+  "driver_claimed_wait_minutes": 40
+}

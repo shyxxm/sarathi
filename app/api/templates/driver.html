@@ -4,6 +4,7 @@
 {% block content %}
 <main id="main" class="driver-shell">
   <header class="screen-heading"><h1>Today’s trip</h1><span>One trip · {{ state.stops | length }} stops</span></header>
+  {% include "partials/voice_composer.html" %}
   {% include "partials/composer.html" %}
   {% include "partials/driver_updates.html" %}
 </main>

@@ -1,0 +1,6 @@
+{
+  "event_type": "STOP_COMPLETED",
+  "intents": [
+    "REPORT"
+  ]
+}

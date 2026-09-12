@@ -1,0 +1,364 @@
+{
+  "source_runs": [
+    "../2026-09-12/report.json",
+    "../2026-09-12-note04/report.json"
+  ],
+  "reference_kind": "translation",
+  "rows": [
+    {
+      "id": "1",
+      "reference": "The gate is shut, security told me to wait and come back later, I'm standing outside. It's been forty minutes.",
+      "expected": {
+        "event_type": "GATE_CLOSED",
+        "intents": [
+          "REPORT"
+        ],
+        "driver_claimed_wait_minutes": 40
+      },
+      "audio_sha256": "d829b2c6fe5d282ca1d74187be00d5895b8eaa34dbf055790ff7cf9b8b20cfc0",
+      "reference_sha256": "c1fc9fe7a2450ce53843c83265d28e1240221e0a33b5024e4f21031b1baa2aa6",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "GATE_CLOSED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": 40,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "ഗേറ്റ് അടച്ചിരിക്കുക security പറഞ്ഞ് wait ചെയ്യ് പിന്നെ വരാൻ ഞാൻ പുറത്ത് നിൽക്കുവാ 40 minute ആയി",
+      "stt_confidence": null,
+      "language_probability": 0.766,
+      "transcription": {
+        "text": "ഗേറ്റ് അടച്ചിരിക്കുക security പറഞ്ഞ് wait ചെയ്യ് പിന്നെ വരാൻ ഞാൻ പുറത്ത് നിൽക്കുവാ 40 minute ആയി",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.766
+      },
+      "stt_latency_ms": 1962.581624975428,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "ml",
+        "event_type": "GATE_CLOSED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": 40,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1574.249166995287,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "2",
+      "reference": "There's nobody here, they're not picking up the phone, the shop looks closed. What do I do now?",
+      "expected": {
+        "event_type": "CONSIGNEE_ABSENT",
+        "intents": [
+          "REPORT",
+          "QUESTION"
+        ]
+      },
+      "audio_sha256": "48350b6f3d6df963db8857610aa9eafd6575b899716e0afad13a975212765468",
+      "reference_sha256": "a60b37e83fa58d31e12c3498c46ecc8ec2d70a1933c98b53a51e1e6f262f9205",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT",
+          "QUESTION"
+        ],
+        "language": "en",
+        "event_type": "CONSIGNEE_ABSENT",
+        "question_text": "what do I do now?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "ഇവിടെ ആരുമില്ല phone എടുക്കുന്നില്ല shop കൂട്ടിയ പോലെയുണ്ട് ഇപ്പോൾ എന്ത് ചെയ്യും",
+      "stt_confidence": null,
+      "language_probability": 0.803,
+      "transcription": {
+        "text": "ഇവിടെ ആരുമില്ല phone എടുക്കുന്നില്ല shop കൂട്ടിയ പോലെയുണ്ട് ഇപ്പോൾ എന്ത് ചെയ്യും",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.803
+      },
+      "stt_latency_ms": 1491.1321670515463,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT",
+          "QUESTION"
+        ],
+        "language": "ml",
+        "event_type": "CONSIGNEE_ABSENT",
+        "question_text": "what should I do now?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1653.8174169836566,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "3",
+      "reference": "Reached.",
+      "expected": {
+        "event_type": "ARRIVED_STOP",
+        "intents": [
+          "REPORT"
+        ]
+      },
+      "audio_sha256": "aeb7ea54f82c406d4c8cf8cc1e6dd75697e43b4ede7af740490362e6def20808",
+      "reference_sha256": "014e2b85b48a903029d61d0a5d306ae52eca715c025bcb777dd29af12cd0bc26",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "ARRIVED_STOP",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "എത്തി.",
+      "stt_confidence": null,
+      "language_probability": 0.968,
+      "transcription": {
+        "text": "എത്തി.",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.968
+      },
+      "stt_latency_ms": 1042.529792059213,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "ml",
+        "event_type": "ARRIVED_STOP",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1679.4381249928847,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "4",
+      "reference": "Over.",
+      "reference_kind": "translation",
+      "expected": {
+        "event_type": "UNCLEAR",
+        "intents": [
+          "REPORT"
+        ],
+        "transcript_legible": true
+      },
+      "audio_sha256": "80ebef247c9c0728531071179b2a43ab9c8226d90c3276f24a2ca51b85ad5587",
+      "reference_sha256": "df640af96c19727ae09c4b15afd08fa0568af4648cbf7d2ce5db31a10002145b",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "UNCLEAR",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": [
+          "event_type"
+        ]
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "കഴിഞ്ഞു.",
+      "stt_confidence": null,
+      "language_probability": 0.946,
+      "transcription": {
+        "text": "കഴിഞ്ഞു.",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.946
+      },
+      "stt_latency_ms": 668.1416248902678,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "ml",
+        "event_type": "STOP_COMPLETED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1591.9906659983099,
+      "transcript_correct": false
+    },
+    {
+      "id": "5",
+      "reference": "Sir, will I get paid for this waiting?",
+      "expected": {
+        "event_type": null,
+        "intents": [
+          "QUESTION"
+        ]
+      },
+      "audio_sha256": "1b0443381411ce63a43a429deba243a6fcffa879a89da95b9cde74e46a945c27",
+      "reference_sha256": "d31f6310e8db9abf0db1f74d21cfb49ad88237835a49d8e51ae509c5af589c6f",
+      "reference_interpretation": {
+        "intents": [
+          "QUESTION"
+        ],
+        "language": "en",
+        "event_type": null,
+        "question_text": "will I get paid for this waiting?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "Sir ഈ wait ചെയ്യുന്നതിന് പൈസ കിട്ടുമോ?",
+      "stt_confidence": null,
+      "language_probability": 0.777,
+      "transcription": {
+        "text": "Sir ഈ wait ചെയ്യുന്നതിന് പൈസ കിട്ടുമോ?",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.777
+      },
+      "stt_latency_ms": 1056.4848330104724,
+      "transcript_interpretation": {
+        "intents": [
+          "QUESTION"
+        ],
+        "language": "ml",
+        "event_type": null,
+        "question_text": "will I be paid for this waiting?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1567.9051670012996,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "6",
+      "reference": "Ok sir, finished unloading.",
+      "expected": {
+        "event_type": "STOP_COMPLETED",
+        "intents": [
+          "REPORT"
+        ]
+      },
+      "audio_sha256": "c66fce0d908794a14382f03a5831cd9060ef749df07289dbae87279327c208a3",
+      "reference_sha256": "92ab314f35fb5c8c87143401afa3ab515cb885b25d9f3f2521bc5959a82557b7",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "STOP_COMPLETED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "Okay Sir load ഇറക്കി കഴിഞ്ഞു.",
+      "stt_confidence": null,
+      "language_probability": 0.524,
+      "transcription": {
+        "text": "Okay Sir load ഇറക്കി കഴിഞ്ഞു.",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.524
+      },
+      "stt_latency_ms": 996.9129170058295,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "mixed",
+        "event_type": "STOP_COMPLETED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1578.2305418979377,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    }
+  ],
+  "summary": {
+    "notes": 6,
+    "expected_readings": 5,
+    "failed_ambiguity_cases": [
+      "4"
+    ],
+    "genuine_confidences": 0,
+    "wer": null,
+    "mean_stt_latency_ms": 1202.9638264987927
+  },
+  "limits": "Single female speaker, clean conditions; no engine-noise measurement; English meaning references do not establish exact ASR errors.",
+  "finding_classification": {
+    "note": "4",
+    "spec_section": "2.4",
+    "finding": "STT ambiguity collapse",
+    "attribution": "Speaker diagnosis; exact spoken reference unverified and different-language comparison does not isolate stage responsibility.",
+    "correction_loop_tested": false
+  }
+}

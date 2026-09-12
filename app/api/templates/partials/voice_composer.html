@@ -1,0 +1,11 @@
+<section id="voice-composer" class="composer" aria-labelledby="voice-title">
+  <div class="section-label"><h3 id="voice-title">Send a voice note</h3><span>Up to 25 seconds</span></div>
+  <button type="button" id="record-voice" disabled>Record voice note</button>
+  <button type="button" id="stop-voice" hidden>Stop recording</button>
+  <button type="button" id="cancel-voice" hidden>Discard recording</button>
+  <audio id="voice-preview" controls hidden aria-label="Listen to your recording"></audio>
+  <a id="download-voice" hidden download="voice-note.webm">Save recording</a>
+  <button type="button" id="send-voice" hidden>Send voice note</button>
+  <p id="voice-status" class="muted" role="status">You can also type your message below.</p>
+  <noscript><p>Recording needs JavaScript. You can type below.</p></noscript>
+</section>

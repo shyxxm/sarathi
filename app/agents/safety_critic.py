@@ -109,9 +109,10 @@ def signals(
 ) -> dict[str, float]:
     """SPEC 5, computed in code. No model call, no clock, no I/O.
 
-    `transcript_legible` falls back to the interpreter's own boolean when there
-    is no per-segment STT confidence yet — M6 owes that number. A transcript
-    the interpreter called illegible scores 0.0 either way.
+    Typed text uses the interpreter's boolean. Voice callers pass the minimum
+    segment confidence, or zero credit when it was not supplied. Missing voice
+    confidence is retained as unavailable on the exchange, never invented as
+    a measurement. An illegible transcript scores 0.0 either way.
     """
     legible = 0.0 if not understood.transcript_legible else (
         1.0 if stt_confidence is None else max(0.0, min(1.0, stt_confidence))

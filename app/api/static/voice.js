@@ -3,6 +3,7 @@
   // interrupt playback nor synthesise/speak that reply again.
   const replies = new Map();
   let currentId;
+  let recording = false;
   const panel = () => document.querySelector('.reply-audio');
 
   function paint(id) {
@@ -16,7 +17,7 @@
 
   async function play(id) {
     const entry = replies.get(id);
-    if (currentId !== id || !entry?.audio) return;
+    if (recording || currentId !== id || !entry?.audio) return;
     entry.audio.currentTime = 0;
     try {
       await entry.audio.play();
@@ -67,5 +68,9 @@
   });
   // htmx:load covers normal swaps and the out-of-band reply after sending.
   document.body.addEventListener('htmx:load', sync);
+  document.body.addEventListener('sarathi:recording', event => {
+    recording = event.detail.active;
+    if (recording) replies.get(currentId)?.audio?.pause();
+  });
   sync();
 })();

@@ -1,0 +1,87 @@
+{
+  "at": "2026-09-11T20:10:50.060073+00:00",
+  "provider": "sarvam",
+  "reference_kind": "translation",
+  "recording_conditions": {
+    "source": "User-supplied descriptions and reference transcripts, 12 September 2026",
+    "speaker_count": 1,
+    "speaker_description": "female",
+    "conditions": "clean",
+    "engine_noise_tested": false,
+    "limitation": "Optimistic clean-condition ceiling, not a measurement of route-driver performance.",
+    "reference_kind": "translation",
+    "reference_use": "English references used as meaning-level ground truth; exact spoken wording not supplied.",
+    "note_04": "Arrived after the initial five-note run; compared separately against the previously supplied reference Over."
+  },
+  "stt_model": "saaras:v3",
+  "mode": "codemix",
+  "interpreter_model": "anthropic/claude-haiku-4-5-20251001",
+  "interpreter_prompt_sha256": "07bb152f39e140a3bd43c4b90b426f9d3f7b850f760ed10970f3449456fd38eb",
+  "rows": [
+    {
+      "id": "4",
+      "reference": "Over.",
+      "reference_kind": "translation",
+      "expected": {
+        "event_type": "UNCLEAR",
+        "intents": [
+          "REPORT"
+        ],
+        "transcript_legible": true
+      },
+      "audio_sha256": "80ebef247c9c0728531071179b2a43ab9c8226d90c3276f24a2ca51b85ad5587",
+      "reference_sha256": "df640af96c19727ae09c4b15afd08fa0568af4648cbf7d2ce5db31a10002145b",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "UNCLEAR",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": [
+          "event_type"
+        ]
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "കഴിഞ്ഞു.",
+      "stt_confidence": null,
+      "language_probability": 0.946,
+      "transcription": {
+        "text": "കഴിഞ്ഞു.",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.946
+      },
+      "stt_latency_ms": 668.1416248902678,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "ml",
+        "event_type": "STOP_COMPLETED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1591.9906659983099,
+      "transcript_correct": false
+    }
+  ],
+  "finding_classification": {
+    "note": "4",
+    "spec_section": "2.4",
+    "finding": "STT ambiguity collapse",
+    "attribution": "Speaker diagnosis; exact spoken reference unverified and different-language comparison does not isolate stage responsibility.",
+    "correction_loop_tested": false
+  }
+}

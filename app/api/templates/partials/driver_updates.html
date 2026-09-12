@@ -1,4 +1,4 @@
-<div id="driver-updates" hx-get="/driver/updates" hx-trigger="every 5s" hx-swap="outerHTML" hx-sync="#composer:drop"
+<div id="driver-updates" hx-get="/driver/updates" hx-trigger="every 5s, shiftUpdated from:body" hx-swap="outerHTML" hx-sync="#composer:drop"
      {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
   <div class="day-stamp"><span>Demo shift · {{ now.strftime('%d %b') }}</span><time datetime="{{ now.isoformat() }}">{{ now.strftime('%H:%M') }} IST</time></div>
   <div class="exchange-stack">
@@ -8,6 +8,7 @@
   <section class="heard" aria-labelledby="heard-title">
     <div class="section-label"><h3 id="heard-title">Your last message</h3><span>{{ heard.at.strftime('%H:%M') if heard else (last_event.ingested_at.strftime('%H:%M') if last_event else '—') }}</span></div>
     <p class="transcript">{{ heard.transcript if heard else (last_event.raw_transcript if last_event else 'No message yet.') }}</p>
+    {% if heard and heard.transcription %}<small>Transcribed from your voice note. Check that these are your words.</small>{% endif %}
   </section>
   <section class="reply" aria-labelledby="reply-title">
     <div class="reply-heading"><span class="reply-mark" aria-hidden="true">സ</span><h3 id="reply-title">Sarathi answered</h3><time class="muted">{{ latest.at.strftime('%H:%M') if latest else '' }}</time>

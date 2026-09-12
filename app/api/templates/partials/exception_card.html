@@ -23,6 +23,9 @@
   </section>
   {% if ex.status.value == 'RESOLVED' %}</details>{% endif %}
   <details class="reasoning" data-detail-key="{{ ex.id }}-reasoning"><summary><span>Reasoning trace</span><span class="trace-preview">Input → read → retrieve → decide → act</span></summary>
+    {% if card.exchange and card.exchange.transcription %}
+    <p class="muted">Voice transcription confidence: {% if card.exchange.transcription.stt_confidence is none %}unavailable — zero credit in the safety score.{% else %}{{ '%.3f' | format(card.exchange.transcription.stt_confidence) }} (minimum across segments when supplied).{% endif %}</p>
+    {% endif %}
     <ol class="reasoning-chain">
       <li><strong>01 · Arrived</strong><p>{{ card.trigger }}</p>{% if card.exchange and card.exchange.transcript and card.exchange.transcript != card.opening.raw_transcript %}<p>Latest assessment input: {{ card.exchange.transcript }}</p>{% endif %}<small>{{ card.opening.source }} · occurred {{ card.opening.occurred_at.strftime('%H:%M') }} · recorded {{ card.opening.ingested_at.strftime('%H:%M') }}</small></li>
       <li><strong>02 · Interpreted</strong><p>{{ card.opening.event_type.value }} → {{ 'stop ' ~ card.stop.seq if card.stop else 'trip' }}, identity resolved by code.</p><small>{{ 'Clock rule; no transcript or interpreter call. Critic legibility defaults to 1.00 for system events.' if ex.opened_by == 'system' else 'Seeded interpretation.' if card.exchange and card.exchange.origin == 'captured replay' else 'Event validated by the state machine.' }}</small>{% if card.exchange and card.exchange.interpretation %}<p>Intents: {{ card.exchange.interpretation.intents | map(attribute='value') | join(', ') }}{% if card.exchange.interpretation.question_text %} · {{ card.exchange.interpretation.question_text }}{% endif %}</p>{% endif %}</li>

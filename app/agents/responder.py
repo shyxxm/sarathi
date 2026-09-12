@@ -177,9 +177,11 @@ class ResponderContext:
         return tuple(facts) or (say("fact.event", event=happened(EventType.ACKNOWLEDGEMENT)),)
 
     def _record(self) -> str:
-        lines = ["", "## On record — say these back to him in `text`", "",
+        lines = ["", "## On record — the full facts list he reads on screen", "",
                  "(Our records, in our words. This list is what he sees as his facts and "
-                 "you do not write one. Keep every number exactly as it is here.)", ""]
+                 "you do not write one. Speak only what matters now and any difference "
+                 "between his account and our recording; do not recite this list. "
+                 "Keep every number you speak exactly as it is here.)", ""]
         return "\n".join(lines + [f"- {fact}" for fact in self.record_facts()])
 
     def _heard(self) -> str:

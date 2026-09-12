@@ -12,8 +12,10 @@ It also notices when he has gone quiet, and checks on him.
 
 *Sarathi — the charioteer. The one who guides, not the one who watches.*
 
-One simulated trip, text input and optional spoken replies. Speech input is
-still to come (M6, second half).
+One simulated trip, typed or recorded messages, and optional spoken replies.
+The [first six-note voice evaluation](recordings/stt-results/2026-09-12-six-notes/report.md)
+found five expected readings and one failed ambiguity case. One speaker in
+clean conditions; reliability on route-driver audio remains unmeasured.
 
 ## Who it's for
 
@@ -128,6 +130,17 @@ If the browser blocks autoplay, tap Replay reply. Run the live m06 check with
 `uv run python scripts/check_tts.py`; audio, text and timings go to
 `/tmp/sarathi-m06`.
 
+For voice input, also set `STT_PROVIDER=sarvam`. Record up to 25 seconds on
+`/driver`, preview and send. Microphone access needs localhost or HTTPS. The
+typed box stays available; a transcription failure submits no words. Sarvam
+does not provide transcription confidence, so voice gets zero credit for that
+safety signal, explicitly shown as unavailable. Language-detection probability
+is never substituted. Put original voice notes and same-name human `.txt`
+transcripts in `recordings/stt/`, then run `uv run python scripts/check_stt.py`.
+Use `--reference-kind translation` for meaning-level references; those cannot
+support word-error rates. The committed six-note corpus uses English meaning
+references and records this setting in `conditions.json`.
+
 Language models go through LiteLLM, so any provider works. The interpreter
 calibration set runs against a local Ollama model by default, unmetered and
 not a quality signal. Add `--score` to run it on the configured cheap tier:
@@ -147,7 +160,7 @@ uv run python scripts/check_interpreter.py [--score]
   state.
 - **Customer messages are never sent.** Approving a draft records a review and
   nothing else.
-- **Not yet built:** speech input (M6, second half); corrections and precedent
+- **Not yet built:** corrections and precedent
   write-back (M7); a LangGraph port and FastMCP tools, as learning exercises
   (M8). v0.1 is one trip, five stops, text input.
 

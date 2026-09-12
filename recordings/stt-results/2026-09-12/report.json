@@ -1,0 +1,311 @@
+{
+  "at": "2026-09-11T19:58:20.389892+00:00",
+  "provider": "sarvam",
+  "stt_model": "saaras:v3",
+  "mode": "codemix",
+  "interpreter_model": "anthropic/claude-haiku-4-5-20251001",
+  "interpreter_prompt_sha256": "07bb152f39e140a3bd43c4b90b426f9d3f7b850f760ed10970f3449456fd38eb",
+  "rows": [
+    {
+      "id": "1",
+      "reference": "The gate is shut, security told me to wait and come back later, I'm standing outside. It's been forty minutes.",
+      "expected": {
+        "event_type": "GATE_CLOSED",
+        "intents": [
+          "REPORT"
+        ],
+        "driver_claimed_wait_minutes": 40
+      },
+      "audio_sha256": "d829b2c6fe5d282ca1d74187be00d5895b8eaa34dbf055790ff7cf9b8b20cfc0",
+      "reference_sha256": "c1fc9fe7a2450ce53843c83265d28e1240221e0a33b5024e4f21031b1baa2aa6",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "GATE_CLOSED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": 40,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "ഗേറ്റ് അടച്ചിരിക്കുക security പറഞ്ഞ് wait ചെയ്യ് പിന്നെ വരാൻ ഞാൻ പുറത്ത് നിൽക്കുവാ 40 minute ആയി",
+      "stt_confidence": null,
+      "language_probability": 0.766,
+      "transcription": {
+        "text": "ഗേറ്റ് അടച്ചിരിക്കുക security പറഞ്ഞ് wait ചെയ്യ് പിന്നെ വരാൻ ഞാൻ പുറത്ത് നിൽക്കുവാ 40 minute ആയി",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.766
+      },
+      "stt_latency_ms": 1962.581624975428,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "ml",
+        "event_type": "GATE_CLOSED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": 40,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1574.249166995287,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "2",
+      "reference": "There's nobody here, they're not picking up the phone, the shop looks closed. What do I do now?",
+      "expected": {
+        "event_type": "CONSIGNEE_ABSENT",
+        "intents": [
+          "REPORT",
+          "QUESTION"
+        ]
+      },
+      "audio_sha256": "48350b6f3d6df963db8857610aa9eafd6575b899716e0afad13a975212765468",
+      "reference_sha256": "a60b37e83fa58d31e12c3498c46ecc8ec2d70a1933c98b53a51e1e6f262f9205",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT",
+          "QUESTION"
+        ],
+        "language": "en",
+        "event_type": "CONSIGNEE_ABSENT",
+        "question_text": "what do I do now?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "ഇവിടെ ആരുമില്ല phone എടുക്കുന്നില്ല shop കൂട്ടിയ പോലെയുണ്ട് ഇപ്പോൾ എന്ത് ചെയ്യും",
+      "stt_confidence": null,
+      "language_probability": 0.803,
+      "transcription": {
+        "text": "ഇവിടെ ആരുമില്ല phone എടുക്കുന്നില്ല shop കൂട്ടിയ പോലെയുണ്ട് ഇപ്പോൾ എന്ത് ചെയ്യും",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.803
+      },
+      "stt_latency_ms": 1491.1321670515463,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT",
+          "QUESTION"
+        ],
+        "language": "ml",
+        "event_type": "CONSIGNEE_ABSENT",
+        "question_text": "what should I do now?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1653.8174169836566,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "3",
+      "reference": "Reached.",
+      "expected": {
+        "event_type": "ARRIVED_STOP",
+        "intents": [
+          "REPORT"
+        ]
+      },
+      "audio_sha256": "aeb7ea54f82c406d4c8cf8cc1e6dd75697e43b4ede7af740490362e6def20808",
+      "reference_sha256": "014e2b85b48a903029d61d0a5d306ae52eca715c025bcb777dd29af12cd0bc26",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "ARRIVED_STOP",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "എത്തി.",
+      "stt_confidence": null,
+      "language_probability": 0.968,
+      "transcription": {
+        "text": "എത്തി.",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.968
+      },
+      "stt_latency_ms": 1042.529792059213,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "ml",
+        "event_type": "ARRIVED_STOP",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1679.4381249928847,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "5",
+      "reference": "Sir, will I get paid for this waiting?",
+      "expected": {
+        "event_type": null,
+        "intents": [
+          "QUESTION"
+        ]
+      },
+      "audio_sha256": "1b0443381411ce63a43a429deba243a6fcffa879a89da95b9cde74e46a945c27",
+      "reference_sha256": "d31f6310e8db9abf0db1f74d21cfb49ad88237835a49d8e51ae509c5af589c6f",
+      "reference_interpretation": {
+        "intents": [
+          "QUESTION"
+        ],
+        "language": "en",
+        "event_type": null,
+        "question_text": "will I get paid for this waiting?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "Sir ഈ wait ചെയ്യുന്നതിന് പൈസ കിട്ടുമോ?",
+      "stt_confidence": null,
+      "language_probability": 0.777,
+      "transcription": {
+        "text": "Sir ഈ wait ചെയ്യുന്നതിന് പൈസ കിട്ടുമോ?",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.777
+      },
+      "stt_latency_ms": 1056.4848330104724,
+      "transcript_interpretation": {
+        "intents": [
+          "QUESTION"
+        ],
+        "language": "ml",
+        "event_type": null,
+        "question_text": "will I be paid for this waiting?",
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1567.9051670012996,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    },
+    {
+      "id": "6",
+      "reference": "Ok sir, finished unloading.",
+      "expected": {
+        "event_type": "STOP_COMPLETED",
+        "intents": [
+          "REPORT"
+        ]
+      },
+      "audio_sha256": "c66fce0d908794a14382f03a5831cd9060ef749df07289dbae87279327c208a3",
+      "reference_sha256": "92ab314f35fb5c8c87143401afa3ab515cb885b25d9f3f2521bc5959a82557b7",
+      "reference_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "en",
+        "event_type": "STOP_COMPLETED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "reference_error": null,
+      "reference_correct": true,
+      "transcript": "Okay Sir load ഇറക്കി കഴിഞ്ഞു.",
+      "stt_confidence": null,
+      "language_probability": 0.524,
+      "transcription": {
+        "text": "Okay Sir load ഇറക്കി കഴിഞ്ഞു.",
+        "confidence": null,
+        "segment_confidences": [],
+        "language_code": "ml-IN",
+        "language_probability": 0.524
+      },
+      "stt_latency_ms": 996.9129170058295,
+      "transcript_interpretation": {
+        "intents": [
+          "REPORT"
+        ],
+        "language": "mixed",
+        "event_type": "STOP_COMPLETED",
+        "question_text": null,
+        "location_hint": null,
+        "driver_claimed_wait_minutes": null,
+        "contradicts_recent_state": false,
+        "transcript_legible": true,
+        "unresolved_fields": []
+      },
+      "interpreter_error": null,
+      "interpreter_latency_ms": 1578.2305418979377,
+      "transcript_correct": true,
+      "reference_kind": "translation"
+    }
+  ],
+  "reference_kind": "translation",
+  "recording_conditions": {
+    "source": "User-supplied descriptions and reference transcripts, 12 September 2026",
+    "speaker_count": 1,
+    "speaker_description": "female",
+    "conditions": "clean",
+    "engine_noise_tested": false,
+    "missing_note": "04, Over; not recorded",
+    "limitation": "Optimistic clean-condition ceiling, not a measurement of route-driver performance.",
+    "reference_kind": "translation",
+    "reference_use": "English references used as meaning-level ground truth; exact spoken wording not supplied."
+  },
+  "method_correction": "The first pass compared English references lexically with Malayalam-English STT. Those WER values were invalid and have been removed. This report reuses the original provider and interpreter outputs; no calls were repeated. Any WER in the initial evaluation trace output is superseded by this correction.",
+  "summary": {
+    "notes": 5,
+    "reference_semantic_matches": 5,
+    "stt_semantic_matches": 5,
+    "genuine_confidence_count": 0,
+    "stt_mean_ms": 1309.9282668204978,
+    "wer": null,
+    "field_accuracy": "unmeasured"
+  }
+}

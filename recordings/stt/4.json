@@ -1,0 +1,7 @@
+{
+  "event_type": "UNCLEAR",
+  "intents": [
+    "REPORT"
+  ],
+  "transcript_legible": true
+}

@@ -1,0 +1,6 @@
+{
+  "event_type": "ARRIVED_STOP",
+  "intents": [
+    "REPORT"
+  ]
+}

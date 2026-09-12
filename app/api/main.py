@@ -8,6 +8,7 @@ from app import tracing
 from app.api import dispatcher, driver
 from app.api.service import ShiftService
 from app.voice.tts import ReplyAudio
+from app.voice.stt import SpeechInput
 
 
 def create_app(service: ShiftService | None = None) -> FastAPI:
@@ -15,6 +16,7 @@ def create_app(service: ShiftService | None = None) -> FastAPI:
     application = FastAPI(title="Sarathi", docs_url=None, redoc_url=None)
     application.state.shift = service if service is not None else ShiftService()
     application.state.reply_audio = ReplyAudio()
+    application.state.speech_input = SpeechInput()
     application.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
     application.include_router(driver.router)
     application.include_router(dispatcher.router)

@@ -1,0 +1,7 @@
+{
+  "event_type": "CONSIGNEE_ABSENT",
+  "intents": [
+    "REPORT",
+    "QUESTION"
+  ]
+}

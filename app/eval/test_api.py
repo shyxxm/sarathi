@@ -67,12 +67,13 @@ def stub_rules(monkeypatch, service, *, supported=True):
     return source
 
 
-def test_surfaces_and_no_audio_capture(client):
+def test_surfaces_keep_text_alongside_optional_recording(client):
     assert client.get("/", follow_redirects=False).headers["location"] == "/driver"
     html = client.get("/driver").text
     assert 'name="text"' in html and "Send to Sarathi" in html
     assert "Your day, recorded" in html
-    assert "<audio" not in html and "microphone" not in html
+    assert 'id="record-voice"' in html and 'id="voice-preview"' in html
+    assert 'id="driver-text"' in html
     html = client.get("/dispatcher").text
     assert all(name in html for name in ["NEEDS ATTENTION", "HANDLED", "RUNNING FINE"])
     assert 'min="0" max="600"' in html
